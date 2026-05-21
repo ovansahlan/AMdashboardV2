@@ -41,3 +41,4 @@ export default function App() {
     </TimeMachineContext.Provider>
   );
 }
+// fix: Vercel import case sensitivity
