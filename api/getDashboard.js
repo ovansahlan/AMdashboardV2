@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       // Ubah range-nya agar mencakup dari Kolom A sampai Kolom BZ, mulai baris ke-5
-      range: 'Master_Outlet!A5:BZ', 
+      range: 'Master_Outlet!A:BZ', 
     });
 
     const rows = response.data.values;
