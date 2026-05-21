@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSheetData } from '../../hooks/useSheetData';
+import { useSheetData } from '../hooks/useSheetData';
 import { Loader2, AlertCircle, Database, RefreshCw } from 'lucide-react';
 
 export default function Dashboard() {

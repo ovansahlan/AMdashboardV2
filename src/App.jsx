@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/layout/Header';
-import Dashboard from './features/dashboard/Dashboard';
+import Dashboard from './pages/Dashboard';
 
 // Placeholder minimalis untuk menu lainnya
 const GMSTracker = () => <div className="p-6 text-slate-800 font-medium">GMS Tracker View</div>;
