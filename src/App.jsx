@@ -2,9 +2,9 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/layout/Header';
 import Dashboard from './pages/Dashboard';
+import GMSTracker from './pages/GMSTracker';
 
 // Placeholder minimalis untuk menu lainnya
-const GMSTracker = () => <div className="p-6 text-slate-800 font-medium">GMS Tracker View</div>;
 const MerchantDetail = () => <div className="p-6 text-slate-800 font-medium">Merchant Detail View</div>;
 const OKRTracker = () => <div className="p-6 text-slate-800 font-medium">OKR Tracker View</div>;
 
