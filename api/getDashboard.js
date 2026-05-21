@@ -20,10 +20,11 @@ export default async function handler(req, res) {
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.SPREADSHEET_ID;
 
-    // TODO: Sesuaikan nama Sheet dan Range-nya nanti dengan file asli Anda
+    // Ubah baris ini di dalam api/getDashboard.js
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Dashboard!A2:E', // Contoh: Mengambil data dari tab "Dashboard" mulai baris 2
+      // Ubah range-nya agar mencakup dari Kolom A sampai Kolom BZ, mulai baris ke-5
+      range: 'Master_Outlet!A5:BZ', 
     });
 
     const rows = response.data.values;

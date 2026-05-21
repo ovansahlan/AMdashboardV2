@@ -1,103 +1,222 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
-import { Loader2, AlertCircle, Database, RefreshCw } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ShoppingCart, Megaphone, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
+
+// 🛠️ HELPER: Format Angka ke Rupiah Indonesia
+const formatRupiah = (number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(number);
+};
+
+// 🛠️ HELPER: Pembersih Angka (Mengubah "59,950,583" menjadi 59950583)
+const parseNumber = (val) => {
+  if (!val || val === '-' || val.toString().trim() === '') return 0;
+  const cleanStr = val.toString().replace(/,/g, '').replace(/\./g, '').replace(/Rp/g, '').trim();
+  const parsed = parseFloat(cleanStr);
+  return isNaN(parsed) ? 0 : parsed;
+};
 
 export default function Dashboard() {
-  // Memanggil API getDashboard yang terhubung ke Google Sheet Anda di Vercel
   const { data, isLoading, error } = useSheetData('getDashboard');
 
-  // 1. STATE LOADING
+  // 🧠 ENGINE PARSING & KALKULASI DATA (Berjalan otomatis tanpa re-render berlebih)
+  const processedData = useMemo(() => {
+    if (!data || data.length === 0) return { kpis: {}, chartsData: [] };
+
+    let totalSales = 0;
+    let totalAds = 0;
+    let totalMCA = 0;
+    const merchantList = [];
+
+    // Loop setiap baris data dari Google Sheet
+    data.forEach((row) => {
+      const mexName = row[4]; // Kolom E: Mex Name
+
+      // Skip baris yang kosong atau header yang nyasar
+      if (!mexName || mexName === 'Mex Name' || mexName === '#N/A') return; 
+
+      // Tarik data berdasarkan peta index CSV Anda
+      const sales = parseNumber(row[19]);  // Kolom T: MTD (BS)
+      const ads = parseNumber(row[31]);    // Kolom AF: Total MTD (Ads)
+      const mca = parseNumber(row[41]);    // Kolom AP: MCA Amount
+      const sucIncome = parseNumber(row[27]); // Kolom AB: SUC (MI)
+
+      // Tambahkan ke Total KPI Global
+      totalSales += sales;
+      totalAds += ads;
+      totalMCA += mca;
+
+      // Masukkan ke daftar Merchant untuk di-ranking nanti
+      merchantList.push({
+        name: mexName,
+        sales: sales,
+        ads: ads,
+        sucIncome: sucIncome
+      });
+    });
+
+    // Kalkulasi Top 10 secara Descending (Terbesar ke Terkecil)
+    const topSales = [...merchantList].sort((a, b) => b.sales - a.sales).slice(0, 10);
+    const topAds = [...merchantList].sort((a, b) => b.ads - a.ads).slice(0, 10);
+    const topSuc = [...merchantList].sort((a, b) => b.sucIncome - a.sucIncome).slice(0, 10);
+
+    return {
+      kpis: {
+        basketsize: formatRupiah(totalSales),
+        adsSpent: formatRupiah(totalAds),
+        mcaAmount: formatRupiah(totalMCA),
+      },
+      chartsData: { topSales, topAds, topSuc }
+    };
+  }, [data]);
+
+  // --- STATE LOADING ---
   if (isLoading) {
     return (
       <div className="h-[60vh] w-full flex flex-col items-center justify-center gap-3 text-slate-500">
         <Loader2 className="animate-spin text-slate-900" size={32} />
-        <p className="text-sm font-medium tracking-wide animate-pulse">Menghubungkan ke Google Sheet Anda via Vercel...</p>
+        <p className="text-sm font-medium tracking-wide animate-pulse">Menghubungkan ke Google Sheet Anda...</p>
       </div>
     );
   }
 
-  // 2. STATE ERROR (Jika Kunci Google Cloud / Sheet ID salah)
+  // --- STATE ERROR ---
   if (error) {
     return (
-      <div className="m-6 p-5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 max-w-2xl mx-auto">
-        <AlertCircle size={24} className="shrink-0 mt-0.5" />
+      <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
+        <AlertCircle size={20} className="shrink-0 mt-0.5" />
         <div>
-          <h4 className="font-bold text-base">Gagal Membaca Google Sheet</h4>
-          <p className="text-sm text-red-600 mt-1">{error}</p>
-          <div className="mt-4 p-3 bg-white border border-red-100 rounded-lg text-xs text-slate-600 space-y-1">
-            <p className="font-semibold text-slate-700">Langkah Pengecekan:</p>
-            <p>1. Pastikan email Service Account Anda sudah di-invite ke dalam Google Sheet tersebut sebagai <b>Viewer</b>.</p>
-            <p>2. Pastikan tab di Google Sheet Anda bernama <b>"Dashboard"</b> (sesuai range API kita).</p>
-            <p>3. Pastikan data di sheet dimulai dari Baris ke-2.</p>
+          <h4 className="font-semibold text-sm">Gagal Sinkronisasi Data</h4>
+          <p className="text-xs text-red-600 mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { kpis, chartsData } = processedData;
+
+  // Custom Tooltip Recharts agar angkanya berformat Rupiah
+  const RupiahTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-900 text-white text-xs p-2 rounded-md shadow-lg border border-slate-700">
+          <p className="font-semibold mb-1">{label}</p>
+          <p className="text-slate-300">{formatRupiah(payload[0].value)}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="p-6 space-y-8 animate-fadeIn">
+      {/* Title */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-950 tracking-tight">Main Dashboard Overview</h1>
+        <p className="text-slate-500 text-sm mt-0.5">Ringkasan performa KPI utama dan matriks Top 10 Merchant (Data Live).</p>
+      </div>
+
+      {/* 📊 KPI CARDS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center text-slate-700 border border-slate-200">
+            <ShoppingCart size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Basketsize (Sales)</p>
+            <h3 className="text-xl font-bold text-slate-950 mt-0.5">{kpis.basketsize || 'Rp 0'}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center text-slate-700 border border-slate-200">
+            <Megaphone size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Ads Spent</p>
+            <h3 className="text-xl font-bold text-slate-950 mt-0.5">{kpis.adsSpent || 'Rp 0'}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center text-slate-700 border border-slate-200">
+            <TrendingUp size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total MCA Amount</p>
+            <h3 className="text-xl font-bold text-slate-950 mt-0.5">{kpis.mcaAmount || 'Rp 0'}</h3>
           </div>
         </div>
       </div>
-    );
-  }
 
-  // 3. STATE JIKA DATA KOSONG
-  if (!data || data.length === 0) {
-    return (
-      <div className="p-12 text-center max-w-md mx-auto space-y-3">
-        <Database className="mx-auto text-slate-300" size={48} />
-        <h3 className="text-lg font-bold text-slate-800">Koneksi Sukses, Tapi Data Kosong</h3>
-        <p className="text-slate-500 text-sm">API berhasil membaca Google Sheet Anda, namun tidak menemukan baris data pada range 'Dashboard!A2:E'.</p>
-      </div>
-    );
-  }
+      {/* 📈 CHARTS GRID (Telah Diurutkan Berdasarkan Nilai Tertinggi) */}
+      {chartsData.topSales && chartsData.topSales.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Chart 1: Top 10 Sales */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-slate-900">Top 10 Sales MTD</h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">Diurutkan berdasarkan Basketsize terbesar.</p>
+            </div>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartsData.topSales} layout="vertical" margin={{ left: 10, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} width={100} />
+                  <Tooltip content={<RupiahTooltip />} cursor={{ fill: '#f8fafc' }} />
+                  <Bar dataKey="sales" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Top Bar Status */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-950 tracking-tight">Koneksi Data Live</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Menampilkan data mentah asli yang dibaca langsung dari Google Sheet Anda.</p>
-        </div>
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold self-start sm:self-center">
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-          Connected to Google Sheets API
-        </div>
-      </div>
+          {/* Chart 2: Top 10 Ads Spender */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-slate-900">Top 10 Ads Spender</h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">Merchant dengan pengeluaran iklan tertinggi.</p>
+            </div>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartsData.topAds} layout="vertical" margin={{ left: 10, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} width={100} />
+                  <Tooltip content={<RupiahTooltip />} cursor={{ fill: '#f8fafc' }} />
+                  <Bar dataKey="ads" fill="#475569" radius={[0, 4, 4, 0]} barSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-      {/* 📄 PREVIEW DATA ASLI */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Tabel Data Sheet (Maksimal 20 Baris Pertama)</span>
-          <span className="text-xs text-slate-400 font-medium">Total Terbaca: {data.length} Baris</span>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-100/70 border-b border-slate-200">
-                <th className="p-3 text-xs font-bold text-slate-600 uppercase w-16 text-center">No</th>
-                <th className="p-3 text-xs font-bold text-slate-600 uppercase">Kolom A</th>
-                <th className="p-3 text-xs font-bold text-slate-600 uppercase">Kolom B</th>
-                <th className="p-3 text-xs font-bold text-slate-600 uppercase">Kolom C</th>
-                <th className="p-3 text-xs font-bold text-slate-600 uppercase">Kolom D</th>
-                <th className="p-3 text-xs font-bold text-slate-600 uppercase">Kolom E</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
-              {data.slice(0, 20).map((row, index) => (
-                <tr key={index} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="p-3 text-center text-xs font-semibold text-slate-400 bg-slate-50/50">{index + 1}</td>
-                  <td className="p-3 font-medium text-slate-900">{row[0] || <span className="text-slate-300 italic">kosong</span>}</td>
-                  <td className="p-3">{row[1] || <span className="text-slate-300 italic">kosong</span>}</td>
-                  <td className="p-3">{row[2] || <span className="text-slate-300 italic">kosong</span>}</td>
-                  <td className="p-3">{row[3] || <span className="text-slate-300 italic">kosong</span>}</td>
-                  <td className="p-3">{row[4] || <span className="text-slate-300 italic">kosong</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          {/* Chart 3: Top 10 SUC (MI) */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-slate-900">Top 10 Success Income (SUC)</h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">Pendapatan sukses tertinggi (pengganti orders).</p>
+            </div>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartsData.topSuc} layout="vertical" margin={{ left: 10, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} width={100} />
+                  <Tooltip content={<RupiahTooltip />} cursor={{ fill: '#f8fafc' }} />
+                  <Bar dataKey="sucIncome" fill="#94a3b8" radius={[0, 4, 4, 0]} barSize={14} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-      <div className="text-xs text-slate-400 text-center">
-        * Catatan: Tampilan ini menggunakan deteksi otomatis. Jika Anda membukanya melalui tautan URL <b>.vercel.app</b>, Anda akan melihat data asli Anda. Jika di StackBlitz, ia akan menampilkan data simulasi aman.
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
