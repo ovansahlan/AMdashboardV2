@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 // 🛠️ HELPER FORMATTER
 const formatRupiah = (number) => {
@@ -17,30 +17,23 @@ const parseNumber = (val) => {
 
 export default function Dashboard() {
   const { data, isLoading, error } = useSheetData('getDashboard');
-  
-  // ⚡ STATE UNTUK FILTER AM (Default: 'All' untuk menampilkan semua data)
   const [selectedAm, setSelectedAm] = useState('All');
 
-  // 🧠 ENGINE 1: Ekstrak Daftar Nama AM Unik Secara Otomatis dari Kolom C (Index 2)
+  // 🧠 ENGINE 1: Ekstrak Daftar Nama AM Unik
   const amList = useMemo(() => {
     if (!data || data.length === 0) return ['All'];
-    
     const uniqueAms = new Set();
     data.forEach((row) => {
-      const amName = row[2]; // Kolom C: AM Name
-      const mexName = row[4]; // Kolom E: Mex Name
-      
-      // Validasi agar header sheet atau baris kosong tidak masuk ke list filter
+      const amName = row[2]; // Kolom C
+      const mexName = row[4]; // Kolom E
       if (amName && amName !== 'AM Name' && amName.trim() !== '' && mexName && mexName !== 'Mex Name') {
         uniqueAms.add(amName.trim());
       }
     });
-
-    // Kembalikan opsi 'All' di urutan pertama, diikuti nama-nama AM hasil sorting abjad
     return ['All', ...Array.from(uniqueAms).sort()];
   }, [data]);
 
-  // 🧠 ENGINE 2: Core Parsing & Kalkulasi KPI/Chart (Sudah disaring berdasarkan AM terpilih)
+  // 🧠 ENGINE 2: Agregasi 6 KPI & Komparasi Data Chart (MTD vs LM)
   const metrics = useMemo(() => {
     if (!data || data.length === 0) return null;
 
@@ -54,25 +47,27 @@ export default function Dashboard() {
     const merchantRankings = [];
 
     data.forEach((row) => {
-      const mexName = row[4]; // Kolom E: Mex Name
-      const amName = row[2] ? row[2].toString().trim() : ''; // Kolom C: AM Name
+      const mexName = row[4]; // Kolom E
+      const amName = row[2] ? row[2].toString().trim() : ''; // Kolom C
       
       if (!mexName || mexName === 'Mex Name' || mexName === '#N/A') return;
 
-      // ⚡ KONDISI FILTER: Jika user memilih AM tertentu, lewati baris merchant milik AM lain
+      // Filter AM
       if (selectedAm !== 'All' && amName !== selectedAm) return;
 
-      // Extract nilai finansial
-      const bs = parseNumber(row[19]);   // Kolom T: MTD (BS)
-      const mi = parseNumber(row[23]);   // Kolom X: MTD (MI)
-      const ads = parseNumber(row[31]);  // Kolom AF: Total MTD (Ads)
-      const pts = parseNumber(row[45]);  // Kolom AT: Total Point Campaign
+      // Parsing Nilai MTD (Bulan Ini) & LM (Bulan Lalu) Berdasarkan Indeks Sheet Anda
+      const bs = parseNumber(row[19]);     // Kolom T: MTD (BS)
+      const bsLM = parseNumber(row[18]);   // Kolom S: Apr-26 (BS LM)
+      const mi = parseNumber(row[23]);     // Kolom X: MTD (MI)
+      const ads = parseNumber(row[31]);    // Kolom AF: Total MTD (Ads)
+      const adsLM = parseNumber(row[30]);  // Kolom AE: Apr-26 (Ads LM)
+      const pts = parseNumber(row[45]);    // Kolom AT: Total Point Campaign
       
       const mcaStatus = row[39] ? row[39].toString().toLowerCase().trim() : ''; 
       const mcaDate = row[40] ? row[40].toString().toLowerCase().trim() : '';   
       const mcaAmount = parseNumber(row[41]);                                  
 
-      // Akumulasi KPI
+      // Akumulasi KPI Global
       totalBasketSize += bs;
       totalInvestment += mi;
       totalAdsSpent += ads;
@@ -84,18 +79,21 @@ export default function Dashboard() {
         totalMcaDisbursed += mcaAmount;
       }
 
+      // Bersihkan nama merchant dari embel-embel lokasi agar rapi di chart
+      const cleanName = mexName.split('-')[0].split(',')[0].trim();
+
       merchantRankings.push({
-        name: mexName.split('-')[0].trim(),
+        name: cleanName,
         sales: bs,
+        salesLM: bsLM,
         ads: ads,
-        investment: mi
+        adsLM: adsLM
       });
     });
 
-    // Urutkan Top 10 Descending hasil filter
+    // Urutkan TOP 10 Terbesar berdasarkan pencapaian Bulan Ini (MTD)
     const topSales = [...merchantRankings].sort((a, b) => b.sales - a.sales).slice(0, 10);
     const topAds = [...merchantRankings].sort((a, b) => b.ads - a.ads).slice(0, 10);
-    const topInvestment = [...merchantRankings].sort((a, b) => b.investment - a.investment).slice(0, 10);
 
     return {
       kpis: {
@@ -106,15 +104,15 @@ export default function Dashboard() {
         activeMerchants: activeMerchantCount.toLocaleString('id-ID'),
         mcaDisbursedStr: formatRupiah(totalMcaDisbursed)
       },
-      charts: { topSales, topAds, topInvestment }
+      charts: { topSales, topAds }
     };
-  }, [data, selectedAm]); // ⚡ Re-run engine otomatis setiap kali 'selectedAm' berubah
+  }, [data, selectedAm]);
 
   if (isLoading) {
     return (
       <div className="h-[70vh] w-full flex flex-col items-center justify-center gap-3 text-slate-500">
         <Loader2 className="animate-spin text-slate-900" size={32} />
-        <p className="text-sm font-medium animate-pulse tracking-wide">Menyaring portfolio data AM...</p>
+        <p className="text-sm font-medium animate-pulse">Menghitung matriks komparasi MTD vs LM...</p>
       </div>
     );
   }
@@ -130,12 +128,41 @@ export default function Dashboard() {
 
   const { kpis, charts } = metrics;
 
-  const RupiahTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
+  // 🛠️ CUSTOM HIGH-INFORMATION TOOLTIP (Menampilkan MTD, LM, dan delta % pertumbuhan)
+  const CompareTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length >= 2) {
+      const lmValue = payload[0].value; // Bar pertama (LM)
+      const mtdValue = payload[1].value; // Bar kedua (MTD)
+      
+      // Hitung persentase growth
+      let growthPct = 0;
+      if (lmValue > 0) {
+        growthPct = ((mtdValue - lmValue) / lmValue) * 100;
+      }
+
       return (
-        <div className="bg-slate-950 text-white text-xs p-2 rounded-lg shadow-xl border border-slate-800">
-          <p className="font-semibold text-slate-400 mb-0.5">{label}</p>
-          <p className="font-bold text-white">{formatRupiah(payload[0].value)}</p>
+        <div className="bg-slate-950 text-white text-xs p-3 rounded-xl shadow-2xl border border-slate-800 space-y-2 min-w-[200px]">
+          <p className="font-bold text-slate-200 border-b border-slate-800 pb-1.5 truncate">{label}</p>
+          <div className="flex justify-between gap-4 text-slate-400">
+            <span>Bulan Lalu (LM):</span>
+            <span className="font-mono font-semibold text-slate-300">{formatRupiah(lmValue)}</span>
+          </div>
+          <div className="flex justify-between gap-4 text-slate-200 font-bold">
+            <span>Bulan Ini (MTD):</span>
+            <span className="font-mono text-white">{formatRupiah(mtdValue)}</span>
+          </div>
+          <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between">
+            <span className="text-slate-400 text-[10px]">Pertumbuhan:</span>
+            {growthPct >= 0 ? (
+              <span className="text-emerald-400 font-bold flex items-center gap-0.5 text-[11px]">
+                <ArrowUpRight size={12} /> +{growthPct.toFixed(1)}%
+              </span>
+            ) : (
+              <span className="text-red-400 font-bold flex items-center gap-0.5 text-[11px]">
+                <ArrowDownRight size={12} /> {growthPct.toFixed(1)}%
+              </span>
+            )}
+          </div>
         </div>
       );
     }
@@ -145,15 +172,14 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-8 animate-fadeIn">
       
-      {/* HEADER SECTION DENGAN DROPDOWN FILTER AM */}
+      {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-950 tracking-tight">Main Dashboard Overview</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Real-time agregasi matriks komersial berdasarkan penugasan Account Manager.</p>
+          <p className="text-slate-500 text-sm mt-0.5">Analisis performa komersial komparatif Month-to-Date vs Bulan Lalu.</p>
         </div>
         
-        {/* 🎛️ SELECT BOX DROP DOWN FILTER */}
-        <div className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 rounded-xl shadow-xs self-start sm:self-center focus-within:border-slate-400 transition-all">
+        <div className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 rounded-xl shadow-xs self-start sm:self-center">
           <Filter size={14} className="text-slate-400" />
           <span className="text-xs font-semibold text-slate-500 mr-1">AM:</span>
           <select
@@ -221,54 +247,56 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 📈 SEKSI CHART TOP 10 RANKINGS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
-        <div className="bg-white p-5 rounded-xl border border-slate-200">
-          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Top 10 Merchant Sales MTD</h4>
-          <div className="h-72 w-full">
+      {/* 📈 NEW SEKSI CHART: 2 KOLOM BESAR (KOMPARASI AKURAT) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+        
+        {/* 1. CHART TOP 10 BASKET SIZE (MTD vs LM) */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <div className="mb-2">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Merchant Basket Size (Sales)</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">Komparasi nilai transaksi bruto bulan ini vs bulan lalu.</p>
+          </div>
+          <div className="h-[420px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topSales} layout="vertical" margin={{ left: -10, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f8fafc" />
+              <BarChart data={charts.topSales} layout="vertical" margin={{ left: 15, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} width={90} />
-                <Tooltip content={<RupiahTooltip />} cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="sales" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={12} />
+                <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} width={130} />
+                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc' }} />
+                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
+                {/* Batang 1: Bulan Lalu (Abu-abu lembut) */}
+                <Bar dataKey="salesLM" name="Bulan Lalu (LM)" fill="#cbd5e1" radius={[0, 4, 4, 0]} barSize={8} />
+                {/* Batang 2: Bulan Ini (Hitam Enterprise murni) */}
+                <Bar dataKey="sales" name="Bulan Ini (MTD)" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={8} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200">
-          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Top 10 Ads Spender</h4>
-          <div className="h-72 w-full">
+        {/* 2. CHART TOP 10 ADS SPENDER (MTD vs LM) */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <div className="mb-2">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Merchant Ads Spender</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">Komparasi alokasi biaya iklan berjalan vs bulan lalu.</p>
+          </div>
+          <div className="h-[420px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topAds} layout="vertical" margin={{ left: -10, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f8fafc" />
+              <BarChart data={charts.topAds} layout="vertical" margin={{ left: 15, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} width={90} />
-                <Tooltip content={<RupiahTooltip />} cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="ads" fill="#475569" radius={[0, 4, 4, 0]} barSize={12} />
+                <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} width={130} />
+                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc' }} />
+                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
+                {/* Batang 1: Bulan Lalu (Abu-abu lembut) */}
+                <Bar dataKey="adsLM" name="Bulan Lalu (LM)" fill="#e2e8f0" radius={[0, 4, 4, 0]} barSize={8} />
+                {/* Batang 2: Bulan Ini (Slate Grey) */}
+                <Bar dataKey="ads" name="Bulan Ini (MTD)" fill="#475569" radius={[0, 4, 4, 0]} barSize={8} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200">
-          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Top 10 Merchant Investment</h4>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topInvestment} layout="vertical" margin={{ left: -10, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f8fafc" />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} width={90} />
-                <Tooltip content={<RupiahTooltip />} cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="investment" fill="#94a3b8" radius={[0, 4, 4, 0]} barSize={12} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
-
     </div>
   );
 }
