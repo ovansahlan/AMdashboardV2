@@ -11,7 +11,7 @@ const createMockDatabase = () => {
     { id: '6-PARECIANJUR', name: 'Pare Cianjur - Bojong', am: 'Saepul Hikam', city: 'Garut', status: 'ACTIVE', salesLM: '45,000,000', salesMTD: '48,254,000', gap: '▲7%', suc: '10,233,615', ads: '0', mca: '0', gms: '0', optOutPkg: 'Standard', optOutDate: '2026-05-10' }
   ];
 
-  // 2. Petakan objek ke dalam Array berukuran 60 kolom sesuai indeks file asli Anda
+  // 2. Petakan objek ke dalam Array berukuran 60 kolom sesuai indeks file asli Anda yah
   const formattedMerchants = rawMerchants.map(m => {
     const row = new Array(65).fill('');
     row[2] = m.am;          // Kolom C (Index 2)
