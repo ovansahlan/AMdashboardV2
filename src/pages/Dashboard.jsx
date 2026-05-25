@@ -1,11 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 // 🛠️ HELPER FORMATTER
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number);
+};
+
+// Formatter Singkatan Mata Uang (Misal: 50M untuk 50 Juta, 1B untuk 1 Miliar agar sum grafik bersih)
+const formatShorthand = (num) => {
+  if (num >= 1e9) return `Rp ${(num / 1e9).toFixed(1)}B`;
+  if (num >= 1e6) return `Rp ${(num / 1e6).toFixed(0)}M`;
+  return `Rp ${num}`;
 };
 
 const parseNumber = (val) => {
@@ -55,7 +62,6 @@ export default function Dashboard() {
       // Filter AM
       if (selectedAm !== 'All' && amName !== selectedAm) return;
 
-      // Parsing Nilai MTD (Bulan Ini) & LM (Bulan Lalu) Berdasarkan Indeks Sheet Anda
       const bs = parseNumber(row[19]);     // Kolom T: MTD (BS)
       const bsLM = parseNumber(row[18]);   // Kolom S: Apr-26 (BS LM)
       const mi = parseNumber(row[23]);     // Kolom X: MTD (MI)
@@ -67,7 +73,6 @@ export default function Dashboard() {
       const mcaDate = row[40] ? row[40].toString().toLowerCase().trim() : '';   
       const mcaAmount = parseNumber(row[41]);                                  
 
-      // Akumulasi KPI Global
       totalBasketSize += bs;
       totalInvestment += mi;
       totalAdsSpent += ads;
@@ -79,8 +84,8 @@ export default function Dashboard() {
         totalMcaDisbursed += mcaAmount;
       }
 
-      // Bersihkan nama merchant dari embel-embel lokasi agar rapi di chart
-      const cleanName = mexName.split('-')[0].split(',')[0].trim();
+      // Potong nama merchant agar pas saat dijajarkan ke samping
+      const cleanName = mexName.split('-')[0].split(',')[0].trim().substring(0, 12);
 
       merchantRankings.push({
         name: cleanName,
@@ -91,7 +96,6 @@ export default function Dashboard() {
       });
     });
 
-    // Urutkan TOP 10 Terbesar berdasarkan pencapaian Bulan Ini (MTD)
     const topSales = [...merchantRankings].sort((a, b) => b.sales - a.sales).slice(0, 10);
     const topAds = [...merchantRankings].sort((a, b) => b.ads - a.ads).slice(0, 10);
 
@@ -112,7 +116,7 @@ export default function Dashboard() {
     return (
       <div className="h-[70vh] w-full flex flex-col items-center justify-center gap-3 text-slate-500">
         <Loader2 className="animate-spin text-slate-900" size={32} />
-        <p className="text-sm font-medium animate-pulse">Menghitung matriks komparasi MTD vs LM...</p>
+        <p className="text-sm font-medium animate-pulse">Menyusun grafik estetik ke samping...</p>
       </div>
     );
   }
@@ -128,37 +132,33 @@ export default function Dashboard() {
 
   const { kpis, charts } = metrics;
 
-  // 🛠️ CUSTOM HIGH-INFORMATION TOOLTIP (Menampilkan MTD, LM, dan delta % pertumbuhan)
+  // 🛠️ CUSTOM GLOWING TOOLTIP
   const CompareTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length >= 2) {
-      const lmValue = payload[0].value; // Bar pertama (LM)
-      const mtdValue = payload[1].value; // Bar kedua (MTD)
-      
-      // Hitung persentase growth
+      const lmValue = payload[0].value;
+      const mtdValue = payload[1].value;
       let growthPct = 0;
-      if (lmValue > 0) {
-        growthPct = ((mtdValue - lmValue) / lmValue) * 100;
-      }
+      if (lmValue > 0) growthPct = ((mtdValue - lmValue) / lmValue) * 100;
 
       return (
-        <div className="bg-slate-950 text-white text-xs p-3 rounded-xl shadow-2xl border border-slate-800 space-y-2 min-w-[200px]">
-          <p className="font-bold text-slate-200 border-b border-slate-800 pb-1.5 truncate">{label}</p>
-          <div className="flex justify-between gap-4 text-slate-400">
-            <span>Bulan Lalu (LM):</span>
-            <span className="font-mono font-semibold text-slate-300">{formatRupiah(lmValue)}</span>
+        <div className="bg-slate-950/95 backdrop-blur-md text-white text-xs p-4 rounded-xl shadow-2xl border border-slate-800 space-y-2.5 min-w-[220px]">
+          <p className="font-bold text-slate-100 border-b border-slate-800 pb-2 tracking-wide text-[13px]">{label}</p>
+          <div className="flex justify-between items-center text-slate-400">
+            <span>Last Month (LM):</span>
+            <span className="font-mono font-medium text-slate-300">{formatRupiah(lmValue)}</span>
           </div>
-          <div className="flex justify-between gap-4 text-slate-200 font-bold">
-            <span>Bulan Ini (MTD):</span>
-            <span className="font-mono text-white">{formatRupiah(mtdValue)}</span>
+          <div className="flex justify-between items-center text-slate-200 font-bold">
+            <span>Month-to-Date (MTD):</span>
+            <span className="font-mono text-emerald-400">{formatRupiah(mtdValue)}</span>
           </div>
-          <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-slate-400 text-[10px]">Pertumbuhan:</span>
+          <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+            <span className="text-slate-400 text-[10px]">Growth Performance:</span>
             {growthPct >= 0 ? (
-              <span className="text-emerald-400 font-bold flex items-center gap-0.5 text-[11px]">
+              <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-bold flex items-center gap-0.5 text-[11px]">
                 <ArrowUpRight size={12} /> +{growthPct.toFixed(1)}%
               </span>
             ) : (
-              <span className="text-red-400 font-bold flex items-center gap-0.5 text-[11px]">
+              <span className="bg-red-500/10 text-red-400 px-2 py-0.5 rounded font-bold flex items-center gap-0.5 text-[11px]">
                 <ArrowDownRight size={12} /> {growthPct.toFixed(1)}%
               </span>
             )}
@@ -176,7 +176,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-950 tracking-tight">Main Dashboard Overview</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Analisis performa komersial komparatif Month-to-Date vs Bulan Lalu.</p>
+          <p className="text-slate-500 text-sm mt-0.5">Real-time analisis performa portofolio Merchant berdasarkan AM teralokasi.</p>
         </div>
         
         <div className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 rounded-xl shadow-xs self-start sm:self-center">
@@ -247,50 +247,69 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 📈 NEW SEKSI CHART: 2 KOLOM BESAR (KOMPARASI AKURAT) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+      {/* 📈 NEW GRID SECTION: 2 MEGA GRAPH SIDE-BY-SIDE (SAMPING) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-2">
         
-        {/* 1. CHART TOP 10 BASKET SIZE (MTD vs LM) */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="mb-2">
+        {/* 1. MEGA CHART: TOP 10 BASKET SIZE (UPRIGHT GRADIENT COLUMNS) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="mb-6">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Merchant Basket Size (Sales)</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Komparasi nilai transaksi bruto bulan ini vs bulan lalu.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Visualisasi berjajar ke samping Month-to-Date vs Bulan Lalu.</p>
           </div>
-          <div className="h-[420px] w-full">
+          <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topSales} layout="vertical" margin={{ left: 15, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} width={130} />
-                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc' }} />
-                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
-                {/* Batang 1: Bulan Lalu (Abu-abu lembut) */}
-                <Bar dataKey="salesLM" name="Bulan Lalu (LM)" fill="#cbd5e1" radius={[0, 4, 4, 0]} barSize={8} />
-                {/* Batang 2: Bulan Ini (Hitam Enterprise murni) */}
-                <Bar dataKey="sales" name="Bulan Ini (MTD)" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={8} />
+              <BarChart data={charts.topSales} margin={{ top: 10, bottom: 5, left: -10, right: 10 }}>
+                {/* 🌟 DEFINE GRADIENT EFFECT */}
+                <defs>
+                  <linearGradient id="salesLmGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#f1f5f9" stopOpacity={0.2}/>
+                  </linearGradient>
+                  <linearGradient id="salesMtdGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1e293b" stopOpacity={1}/>
+                    <stop offset="95%" stopColor="#0f172a" stopOpacity={0.8}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} dy={8} />
+                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} axisLine={false} tickFormatter={formatShorthand} />
+                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.5 }} />
+                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px', paddingBottom: '10px' }} />
+                
+                <Bar dataKey="salesLM" name="Bulan Lalu (LM)" fill="url(#salesLmGrad)" radius={[3, 3, 0, 0]} barSize={10} />
+                <Bar dataKey="sales" name="Bulan Ini (MTD)" fill="url(#salesMtdGrad)" radius={[3, 3, 0, 0]} barSize={10} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 2. CHART TOP 10 ADS SPENDER (MTD vs LM) */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="mb-2">
+        {/* 2. MEGA CHART: TOP 10 ADS SPENDER (UPRIGHT GRADIENT COLUMNS) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="mb-6">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Merchant Ads Spender</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Komparasi alokasi biaya iklan berjalan vs bulan lalu.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Analisis investasi iklan berjalan berdampingan dari kiri ke kanan.</p>
           </div>
-          <div className="h-[420px] w-full">
+          <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topAds} layout="vertical" margin={{ left: 15, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} width={130} />
-                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc' }} />
-                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
-                {/* Batang 1: Bulan Lalu (Abu-abu lembut) */}
-                <Bar dataKey="adsLM" name="Bulan Lalu (LM)" fill="#e2e8f0" radius={[0, 4, 4, 0]} barSize={8} />
-                {/* Batang 2: Bulan Ini (Slate Grey) */}
-                <Bar dataKey="ads" name="Bulan Ini (MTD)" fill="#475569" radius={[0, 4, 4, 0]} barSize={8} />
+              <BarChart data={charts.topAds} margin={{ top: 10, bottom: 5, left: -10, right: 10 }}>
+                <defs>
+                  <linearGradient id="adsLmGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#f8fafc" stopOpacity={0.3}/>
+                  </linearGradient>
+                  <linearGradient id="adsMtdGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#475569" stopOpacity={1}/>
+                    <stop offset="95%" stopColor="#334155" stopOpacity={0.8}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} dy={8} />
+                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} axisLine={false} tickFormatter={formatShorthand} />
+                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.5 }} />
+                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px', paddingBottom: '10px' }} />
+                
+                <Bar dataKey="adsLM" name="Bulan Lalu (LM)" fill="url(#adsLmGrad)" radius={[3, 3, 0, 0]} barSize={10} />
+                <Bar dataKey="ads" name="Bulan Ini (MTD)" fill="url(#adsMtdGrad)" radius={[3, 3, 0, 0]} barSize={10} />
               </BarChart>
             </ResponsiveContainer>
           </div>
