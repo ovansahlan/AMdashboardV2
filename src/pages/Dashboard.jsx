@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter } from 'lucide-react';
 
 // 🛠️ HELPER FORMATTER
 const formatRupiah = (number) => {
@@ -17,8 +17,30 @@ const parseNumber = (val) => {
 
 export default function Dashboard() {
   const { data, isLoading, error } = useSheetData('getDashboard');
+  
+  // ⚡ STATE UNTUK FILTER AM (Default: 'All' untuk menampilkan semua data)
+  const [selectedAm, setSelectedAm] = useState('All');
 
-  // 🧠 CORE PARSING ENGINE: Menghitung 6 KPI Dan Menyusun Top 10 Charts
+  // 🧠 ENGINE 1: Ekstrak Daftar Nama AM Unik Secara Otomatis dari Kolom C (Index 2)
+  const amList = useMemo(() => {
+    if (!data || data.length === 0) return ['All'];
+    
+    const uniqueAms = new Set();
+    data.forEach((row) => {
+      const amName = row[2]; // Kolom C: AM Name
+      const mexName = row[4]; // Kolom E: Mex Name
+      
+      // Validasi agar header sheet atau baris kosong tidak masuk ke list filter
+      if (amName && amName !== 'AM Name' && amName.trim() !== '' && mexName && mexName !== 'Mex Name') {
+        uniqueAms.add(amName.trim());
+      }
+    });
+
+    // Kembalikan opsi 'All' di urutan pertama, diikuti nama-nama AM hasil sorting abjad
+    return ['All', ...Array.from(uniqueAms).sort()];
+  }, [data]);
+
+  // 🧠 ENGINE 2: Core Parsing & Kalkulasi KPI/Chart (Sudah disaring berdasarkan AM terpilih)
   const metrics = useMemo(() => {
     if (!data || data.length === 0) return null;
 
@@ -31,47 +53,46 @@ export default function Dashboard() {
 
     const merchantRankings = [];
 
-    // Looping data asli (Melewati baris-baris kosong/header awal)
     data.forEach((row) => {
-      const mexName = row[4]; // Kolom E (Index 4)
+      const mexName = row[4]; // Kolom E: Mex Name
+      const amName = row[2] ? row[2].toString().trim() : ''; // Kolom C: AM Name
+      
       if (!mexName || mexName === 'Mex Name' || mexName === '#N/A') return;
 
-      // Extract nilai mentah dari kolom target
+      // ⚡ KONDISI FILTER: Jika user memilih AM tertentu, lewati baris merchant milik AM lain
+      if (selectedAm !== 'All' && amName !== selectedAm) return;
+
+      // Extract nilai finansial
       const bs = parseNumber(row[19]);   // Kolom T: MTD (BS)
       const mi = parseNumber(row[23]);   // Kolom X: MTD (MI)
       const ads = parseNumber(row[31]);  // Kolom AF: Total MTD (Ads)
       const pts = parseNumber(row[45]);  // Kolom AT: Total Point Campaign
       
-      const mcaStatus = row[39] ? row[39].toString().toLowerCase().trim() : ''; // Kolom AN
-      const mcaDate = row[40] ? row[40].toString().toLowerCase().trim() : '';   // Kolom AO
-      const mcaAmount = parseNumber(row[41]);                                  // Kolom AP
+      const mcaStatus = row[39] ? row[39].toString().toLowerCase().trim() : ''; 
+      const mcaDate = row[40] ? row[40].toString().toLowerCase().trim() : '';   
+      const mcaAmount = parseNumber(row[41]);                                  
 
-      // 1. Akumulasi KPI Dasar
+      // Akumulasi KPI
       totalBasketSize += bs;
       totalInvestment += mi;
       totalAdsSpent += ads;
       totalCampaignPoints += pts;
 
-      // 2. Hitung Merchant Aktif (Transaksi MTD > 0)
-      if (bs > 0) {
-        activeMerchantCount++;
-      }
+      if (bs > 0) activeMerchantCount++;
 
-      // 3. Hitung MCA Disbursed Khusus Bulan Berjalan (May-26 atau mengandung kata 'may' / 'mei')
       if (mcaStatus === 'disbursed' && (mcaDate.includes('may') || mcaDate.includes('mei') || mcaDate.includes('-05-'))) {
         totalMcaDisbursed += mcaAmount;
       }
 
-      // Simpan untuk keperluan perankingan chart
       merchantRankings.push({
-        name: mexName.split('-')[0].trim(), // Ambil nama depan saja agar teks chart ringkas
+        name: mexName.split('-')[0].trim(),
         sales: bs,
         ads: ads,
         investment: mi
       });
     });
 
-    // Urutkan Top 10 Descending
+    // Urutkan Top 10 Descending hasil filter
     const topSales = [...merchantRankings].sort((a, b) => b.sales - a.sales).slice(0, 10);
     const topAds = [...merchantRankings].sort((a, b) => b.ads - a.ads).slice(0, 10);
     const topInvestment = [...merchantRankings].sort((a, b) => b.investment - a.investment).slice(0, 10);
@@ -87,13 +108,13 @@ export default function Dashboard() {
       },
       charts: { topSales, topAds, topInvestment }
     };
-  }, [data]);
+  }, [data, selectedAm]); // ⚡ Re-run engine otomatis setiap kali 'selectedAm' berubah
 
   if (isLoading) {
     return (
       <div className="h-[70vh] w-full flex flex-col items-center justify-center gap-3 text-slate-500">
         <Loader2 className="animate-spin text-slate-900" size={32} />
-        <p className="text-sm font-medium animate-pulse tracking-wide">Mengkalkulasi Rapor Sheet C-BS...</p>
+        <p className="text-sm font-medium animate-pulse tracking-wide">Menyaring portfolio data AM...</p>
       </div>
     );
   }
@@ -109,7 +130,6 @@ export default function Dashboard() {
 
   const { kpis, charts } = metrics;
 
-  // Custom Formatter Tooltip Chart
   const RupiahTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -124,16 +144,34 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-8 animate-fadeIn">
-      {/* Title */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-950 tracking-tight">Main Dashboard Overview</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Real-time agregasi matriks komersial seluruh Account Manager (AM).</p>
+      
+      {/* HEADER SECTION DENGAN DROPDOWN FILTER AM */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-950 tracking-tight">Main Dashboard Overview</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Real-time agregasi matriks komersial berdasarkan penugasan Account Manager.</p>
+        </div>
+        
+        {/* 🎛️ SELECT BOX DROP DOWN FILTER */}
+        <div className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 rounded-xl shadow-xs self-start sm:self-center focus-within:border-slate-400 transition-all">
+          <Filter size={14} className="text-slate-400" />
+          <span className="text-xs font-semibold text-slate-500 mr-1">AM:</span>
+          <select
+            value={selectedAm}
+            onChange={(e) => setSelectedAm(e.target.value)}
+            className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer pr-4"
+          >
+            {amList.map((am) => (
+              <option key={am} value={am}>
+                {am === 'All' ? 'All Account Managers' : am}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* 📊 GRID 6 KARTU KPI UTAMA (Enterprise Grid Responsive) */}
+      {/* 📊 GRID 6 KARTU KPI UTAMA */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
-        
-        {/* KPI 1: Total Basket Size */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider">MTD Basket Size</span>
@@ -142,7 +180,6 @@ export default function Dashboard() {
           <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.basketSizeStr}</h3>
         </div>
 
-        {/* KPI 2: Total Investment */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider">Total Investment</span>
@@ -151,7 +188,6 @@ export default function Dashboard() {
           <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.investmentStr}</h3>
         </div>
 
-        {/* KPI 3: Total Ads Spent */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider">Total Ads MTD</span>
@@ -160,7 +196,6 @@ export default function Dashboard() {
           <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.adsSpentStr}</h3>
         </div>
 
-        {/* KPI 4: Total Campaign Points */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider">Campaign Points</span>
@@ -169,7 +204,6 @@ export default function Dashboard() {
           <h3 className="text-lg font-black text-slate-950 tracking-tight mt-2">{kpis.campaignPointsStr} <span className="text-xs font-medium text-slate-400">Pts</span></h3>
         </div>
 
-        {/* KPI 5: Active Merchants */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider">Active Merchant</span>
@@ -178,7 +212,6 @@ export default function Dashboard() {
           <h3 className="text-lg font-black text-slate-950 tracking-tight mt-2">{kpis.activeMerchants} <span className="text-xs font-medium text-slate-400">Mex</span></h3>
         </div>
 
-        {/* KPI 6: MCA Disbursed */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider">MCA Disbursed MTD</span>
@@ -186,13 +219,10 @@ export default function Dashboard() {
           </div>
           <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.mcaDisbursedStr}</h3>
         </div>
-
       </div>
 
       {/* 📈 SEKSI CHART TOP 10 RANKINGS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
-        
-        {/* Chart 1: Top 10 Sales */}
         <div className="bg-white p-5 rounded-xl border border-slate-200">
           <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Top 10 Merchant Sales MTD</h4>
           <div className="h-72 w-full">
@@ -208,7 +238,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Chart 2: Top 10 Ads */}
         <div className="bg-white p-5 rounded-xl border border-slate-200">
           <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Top 10 Ads Spender</h4>
           <div className="h-72 w-full">
@@ -224,7 +253,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Chart 3: Top 10 Investment */}
         <div className="bg-white p-5 rounded-xl border border-slate-200">
           <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Top 10 Merchant Investment</h4>
           <div className="h-72 w-full">
@@ -239,8 +267,8 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-
       </div>
+
     </div>
   );
 }
