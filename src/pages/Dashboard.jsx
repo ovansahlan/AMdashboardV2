@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
 import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 // 🛠️ HELPER FORMATTER
@@ -8,11 +8,13 @@ const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number);
 };
 
-// Formatter Singkatan Mata Uang (Misal: 50M untuk 50 Juta, 1B untuk 1 Miliar agar sum grafik bersih)
+// Formatter Singkatan Akurat untuk Label Grafik (Misal: 59.9M, 381K agar hemat tempat di HP)
 const formatShorthand = (num) => {
-  if (num >= 1e9) return `Rp ${(num / 1e9).toFixed(1)}B`;
-  if (num >= 1e6) return `Rp ${(num / 1e6).toFixed(0)}M`;
-  return `Rp ${num}`;
+  if (!num || num === 0) return '0';
+  if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(0)}K`;
+  return `${num}`;
 };
 
 const parseNumber = (val) => {
@@ -84,8 +86,8 @@ export default function Dashboard() {
         totalMcaDisbursed += mcaAmount;
       }
 
-      // Potong nama merchant agar pas saat dijajarkan ke samping
-      const cleanName = mexName.split('-')[0].split(',')[0].trim().substring(0, 12);
+      // Potong nama merchant ekstra pendek agar muat berjajar kesamping di layar HP
+      const cleanName = mexName.split('-')[0].split(',')[0].trim().substring(0, 10);
 
       merchantRankings.push({
         name: cleanName,
@@ -116,14 +118,14 @@ export default function Dashboard() {
     return (
       <div className="h-[70vh] w-full flex flex-col items-center justify-center gap-3 text-slate-500">
         <Loader2 className="animate-spin text-slate-900" size={32} />
-        <p className="text-sm font-medium animate-pulse">Menyusun grafik estetik ke samping...</p>
+        <p className="text-sm font-medium animate-pulse">Mengoptimalkan tampilan mobile dashboard...</p>
       </div>
     );
   }
 
   if (error || !metrics) {
     return (
-      <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex gap-3 text-sm">
+      <div className="m-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex gap-3 text-sm">
         <AlertCircle size={20} className="shrink-0" />
         <div><b>Gagal Sinkronisasi:</b> {error || 'Struktur data tidak valid'}.</div>
       </div>
@@ -132,7 +134,6 @@ export default function Dashboard() {
 
   const { kpis, charts } = metrics;
 
-  // 🛠️ CUSTOM GLOWING TOOLTIP
   const CompareTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length >= 2) {
       const lmValue = payload[0].value;
@@ -141,25 +142,25 @@ export default function Dashboard() {
       if (lmValue > 0) growthPct = ((mtdValue - lmValue) / lmValue) * 100;
 
       return (
-        <div className="bg-slate-950/95 backdrop-blur-md text-white text-xs p-4 rounded-xl shadow-2xl border border-slate-800 space-y-2.5 min-w-[220px]">
-          <p className="font-bold text-slate-100 border-b border-slate-800 pb-2 tracking-wide text-[13px]">{label}</p>
+        <div className="bg-slate-950/95 backdrop-blur-md text-white text-[11px] p-3 rounded-xl shadow-2xl border border-slate-800 space-y-2 min-w-[180px]">
+          <p className="font-bold text-slate-200 border-b border-slate-800 pb-1 truncate">{label}</p>
           <div className="flex justify-between items-center text-slate-400">
-            <span>Last Month (LM):</span>
-            <span className="font-mono font-medium text-slate-300">{formatRupiah(lmValue)}</span>
+            <span>LM:</span>
+            <span className="font-mono font-semibold text-slate-300">{formatRupiah(lmValue)}</span>
           </div>
           <div className="flex justify-between items-center text-slate-200 font-bold">
-            <span>Month-to-Date (MTD):</span>
+            <span>MTD:</span>
             <span className="font-mono text-emerald-400">{formatRupiah(mtdValue)}</span>
           </div>
-          <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-slate-400 text-[10px]">Growth Performance:</span>
+          <div className="pt-1 border-t border-slate-800 flex items-center justify-between">
+            <span className="text-slate-400 text-[9px]">Growth:</span>
             {growthPct >= 0 ? (
-              <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-bold flex items-center gap-0.5 text-[11px]">
-                <ArrowUpRight size={12} /> +{growthPct.toFixed(1)}%
+              <span className="text-emerald-400 font-bold flex items-center text-[10px]">
+                +{growthPct.toFixed(1)}%
               </span>
             ) : (
-              <span className="bg-red-500/10 text-red-400 px-2 py-0.5 rounded font-bold flex items-center gap-0.5 text-[11px]">
-                <ArrowDownRight size={12} /> {growthPct.toFixed(1)}%
+              <span className="text-red-400 font-bold flex items-center text-[10px]">
+                {growthPct.toFixed(1)}%
               </span>
             )}
           </div>
@@ -170,146 +171,168 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-6 space-y-8 animate-fadeIn">
+    <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 animate-fadeIn">
       
       {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-6">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-100 pb-4 sm:pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-950 tracking-tight">Main Dashboard Overview</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Real-time analisis performa portofolio Merchant berdasarkan AM teralokasi.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-950 tracking-tight">Main Dashboard Overview</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">Analisis Month-to-Date vs Bulan Lalu.</p>
         </div>
         
-        <div className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 rounded-xl shadow-xs self-start sm:self-center">
-          <Filter size={14} className="text-slate-400" />
-          <span className="text-xs font-semibold text-slate-500 mr-1">AM:</span>
+        <div className="flex items-center gap-2 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg shadow-xs self-start sm:self-center">
+          <Filter size={12} className="text-slate-400" />
+          <span className="text-[11px] font-semibold text-slate-500">AM:</span>
           <select
             value={selectedAm}
             onChange={(e) => setSelectedAm(e.target.value)}
-            className="text-xs font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer pr-4"
+            className="text-[11px] font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer"
           >
             {amList.map((am) => (
               <option key={am} value={am}>
-                {am === 'All' ? 'All Account Managers' : am}
+                {am === 'All' ? 'All AMs' : am}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* 📊 GRID 6 KARTU KPI UTAMA */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
+      {/* 📊 GRID 6 KARTU KPI UTAMA (Dioptimalkan: Kunci 2 Kolom di HP!) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-5">
+        
+        {/* KPI 1 */}
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">MTD Basket Size</span>
-            <ShoppingCart size={16} className="text-slate-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">MTD Basket Size</span>
+            <ShoppingCart size={14} className="text-slate-400 shrink-0" />
           </div>
-          <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.basketSizeStr}</h3>
+          <h3 className="text-sm sm:text-base font-black text-slate-950 tracking-tight mt-1 truncate">{kpis.basketSizeStr}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
+        {/* KPI 2 */}
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Investment</span>
-            <Coins size={16} className="text-slate-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Total Investment</span>
+            <Coins size={14} className="text-slate-400 shrink-0" />
           </div>
-          <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.investmentStr}</h3>
+          <h3 className="text-sm sm:text-base font-black text-slate-950 tracking-tight mt-1 truncate">{kpis.investmentStr}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
+        {/* KPI 3 */}
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Ads MTD</span>
-            <Megaphone size={16} className="text-slate-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Total Ads MTD</span>
+            <Megaphone size={14} className="text-slate-400 shrink-0" />
           </div>
-          <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.adsSpentStr}</h3>
+          <h3 className="text-sm sm:text-base font-black text-slate-950 tracking-tight mt-1 truncate">{kpis.adsSpentStr}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
+        {/* KPI 4 */}
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Campaign Points</span>
-            <Award size={16} className="text-slate-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Campaign Points</span>
+            <Award size={14} className="text-slate-400 shrink-0" />
           </div>
-          <h3 className="text-lg font-black text-slate-950 tracking-tight mt-2">{kpis.campaignPointsStr} <span className="text-xs font-medium text-slate-400">Pts</span></h3>
+          <h3 className="text-sm sm:text-base font-black text-slate-950 tracking-tight mt-1">{kpis.campaignPointsStr} <span className="text-[10px] font-normal text-slate-400">Pts</span></h3>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
+        {/* KPI 5 */}
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Active Merchant</span>
-            <Store size={16} className="text-slate-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Active Merchant</span>
+            <Store size={14} className="text-slate-400 shrink-0" />
           </div>
-          <h3 className="text-lg font-black text-slate-950 tracking-tight mt-2">{kpis.activeMerchants} <span className="text-xs font-medium text-slate-400">Mex</span></h3>
+          <h3 className="text-sm sm:text-base font-black text-slate-950 tracking-tight mt-1">{kpis.activeMerchants} <span className="text-[10px] font-normal text-slate-400">Mex</span></h3>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[105px]">
+        {/* KPI 6 */}
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
           <div className="flex justify-between items-start text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">MCA Disbursed MTD</span>
-            <Wallet size={16} className="text-slate-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">MCA Disbursed</span>
+            <Wallet size={14} className="text-slate-400 shrink-0" />
           </div>
-          <h3 className="text-base font-black text-slate-950 tracking-tight mt-2 truncate">{kpis.mcaDisbursedStr}</h3>
+          <h3 className="text-sm sm:text-base font-black text-slate-950 tracking-tight mt-1 truncate">{kpis.mcaDisbursedStr}</h3>
         </div>
+
       </div>
 
-      {/* 📈 NEW GRID SECTION: 2 MEGA GRAPH SIDE-BY-SIDE (SAMPING) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-2">
+      {/* 📈 GRAFIK BERJAJER KE SAMPING DENGAN DIRECT VALUE LABELS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 pt-2">
         
-        {/* 1. MEGA CHART: TOP 10 BASKET SIZE (UPRIGHT GRADIENT COLUMNS) */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="mb-6">
+        {/* 1. CHART TOP 10 BASKET SIZE */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="mb-4">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Merchant Basket Size (Sales)</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Visualisasi berjajar ke samping Month-to-Date vs Bulan Lalu.</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Nilai tertera langsung di atas bar grafik.</p>
           </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[280px] sm:h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topSales} margin={{ top: 10, bottom: 5, left: -10, right: 10 }}>
-                {/* 🌟 DEFINE GRADIENT EFFECT */}
+              <BarChart data={charts.topSales} margin={{ top: 20, bottom: 25, left: -25, right: 10 }}>
                 <defs>
                   <linearGradient id="salesLmGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#f1f5f9" stopOpacity={0.2}/>
+                    <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.6}/>
+                    <stop offset="95%" stopColor="#f1f5f9" stopOpacity={0.1}/>
                   </linearGradient>
                   <linearGradient id="salesMtdGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1e293b" stopOpacity={1}/>
-                    <stop offset="95%" stopColor="#0f172a" stopOpacity={0.8}/>
+                    <stop offset="5%" stopColor="#0f172a" stopOpacity={1}/>
+                    <stop offset="95%" stopColor="#334155" stopOpacity={0.8}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} dy={8} />
-                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} axisLine={false} tickFormatter={formatShorthand} />
-                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.5 }} />
-                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px', paddingBottom: '10px' }} />
+                {/* Kemiringan teks di HP diatur -45 derajat agar muat & tidak tabrakan */}
+                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={6} angle={-45} textAnchor="end" height={45} />
+                <YAxis hide type="number" />
+                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.4 }} />
+                <Legend verticalAlign="top" align="right" height={32} iconType="circle" iconSize={5} wrapperStyle={{ fontSize: '10px' }} />
                 
-                <Bar dataKey="salesLM" name="Bulan Lalu (LM)" fill="url(#salesLmGrad)" radius={[3, 3, 0, 0]} barSize={10} />
-                <Bar dataKey="sales" name="Bulan Ini (MTD)" fill="url(#salesMtdGrad)" radius={[3, 3, 0, 0]} barSize={10} />
+                {/* Batang LM */}
+                <Bar dataKey="salesLM" name="LM" fill="url(#salesLmGrad)" radius={[2, 2, 0, 0]} barSize={10}>
+                  <LabelList dataKey="salesLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#94a3b8', fontWeight: 'bold' }} offset={4} />
+                </Bar>
+                
+                {/* Batang MTD */}
+                <Bar dataKey="sales" name="MTD" fill="url(#salesMtdGrad)" radius={[2, 2, 0, 0]} barSize={10}>
+                  <LabelList dataKey="sales" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#0f172a', fontWeight: 'black' }} offset={4} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 2. MEGA CHART: TOP 10 ADS SPENDER (UPRIGHT GRADIENT COLUMNS) */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="mb-6">
+        {/* 2. CHART TOP 10 ADS SPENDER */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="mb-4">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Merchant Ads Spender</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Analisis investasi iklan berjalan berdampingan dari kiri ke kanan.</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Komparasi alokasi biaya iklan tanpa sentuh popup.</p>
           </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[280px] sm:h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topAds} margin={{ top: 10, bottom: 5, left: -10, right: 10 }}>
+              <BarChart data={charts.topAds} margin={{ top: 20, bottom: 25, left: -25, right: 10 }}>
                 <defs>
                   <linearGradient id="adsLmGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.9}/>
-                    <stop offset="95%" stopColor="#f8fafc" stopOpacity={0.3}/>
+                    <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.7}/>
+                    <stop offset="95%" stopColor="#f8fafc" stopOpacity={0.2}/>
                   </linearGradient>
                   <linearGradient id="adsMtdGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#475569" stopOpacity={1}/>
-                    <stop offset="95%" stopColor="#334155" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#64748b" stopOpacity={0.8}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} dy={8} />
-                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} axisLine={false} tickFormatter={formatShorthand} />
-                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.5 }} />
-                <Legend verticalAlign="top" align="right" height={36} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px', paddingBottom: '10px' }} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={6} angle={-45} textAnchor="end" height={45} />
+                <YAxis hide type="number" />
+                <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.4 }} />
+                <Legend verticalAlign="top" align="right" height={32} iconType="circle" iconSize={5} wrapperStyle={{ fontSize: '10px' }} />
                 
-                <Bar dataKey="adsLM" name="Bulan Lalu (LM)" fill="url(#adsLmGrad)" radius={[3, 3, 0, 0]} barSize={10} />
-                <Bar dataKey="ads" name="Bulan Ini (MTD)" fill="url(#adsMtdGrad)" radius={[3, 3, 0, 0]} barSize={10} />
+                {/* Batang LM */}
+                <Bar dataKey="adsLM" name="LM" fill="url(#adsLmGrad)" radius={[2, 2, 0, 0]} barSize={10}>
+                  <LabelList dataKey="adsLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#94a3b8', fontWeight: 'bold' }} offset={4} />
+                </Bar>
+                
+                {/* Batang MTD */}
+                <Bar dataKey="ads" name="MTD" fill="url(#adsMtdGrad)" radius={[2, 2, 0, 0]} barSize={10}>
+                  <LabelList dataKey="ads" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#334155', fontWeight: 'black' }} offset={4} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
