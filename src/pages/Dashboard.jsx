@@ -1,14 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList, PieChart, Pie, Cell } from 'recharts';
-import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, ArrowUpRight, ArrowDownRight, Activity, PieChart as PieIcon } from 'lucide-react';
+import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, ArrowUpRight, ArrowDownRight, Activity, PieChart as PieIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 // 🛠️ HELPER FORMATTER
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number);
 };
 
-// Formatter Singkatan Akurat untuk Label Grafik (Misal: 59.9M, 381K)
 const formatShorthand = (num) => {
   if (!num || num === 0) return '0';
   if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`;
@@ -62,7 +61,7 @@ export default function Dashboard() {
 
     let totalBasketSize = 0, totalInvestment = 0, totalAdsSpent = 0;
     let totalCampaignPoints = 0, activeMerchantCount = 0, totalMcaDisbursed = 0;
-    let health = { grow: 0, stable: 0, drop: 0 };
+    let health = { grow: 0, stable: 0, drop: 0, total: 0 };
     let campaignStats = { gmsOnly: 0, gmsLocal: 0, localOnly: 0, zero: 0 };
 
     const merchantRankings = [];
@@ -96,6 +95,7 @@ export default function Dashboard() {
       }
 
       if (bsLM > 0) {
+        health.total++;
         if (rrBs > bsLM * 1.05) health.grow++;
         else if (rrBs < bsLM * 0.95) health.drop++;
         else health.stable++;
@@ -107,7 +107,7 @@ export default function Dashboard() {
       else if (campType === 'Local Only') campaignStats.localOnly++;
       else campaignStats.zero++;
 
-      // 🛠️ PEMOTONGAN NAMA PINTAR (Gunakan ... jika terlalu panjang)
+      // 🛠️ PEMOTONGAN NAMA PINTAR DENGAN ELLIPSIS (...)
       let cleanName = mexName.split('-')[0].split(',')[0].trim();
       if (cleanName.length > 15) {
         cleanName = cleanName.substring(0, 15) + '...';
@@ -132,6 +132,11 @@ export default function Dashboard() {
       { name: 'Zero Campaign', value: campaignStats.zero, color: '#cbd5e1' }
     ].filter(d => d.value > 0);
 
+    // Hitung Persentase Health
+    health.growPct = health.total ? Math.round((health.grow / health.total) * 100) : 0;
+    health.stablePct = health.total ? Math.round((health.stable / health.total) * 100) : 0;
+    health.dropPct = health.total ? Math.round((health.drop / health.total) * 100) : 0;
+
     return {
       kpis: {
         basketSizeStr: formatRupiah(totalBasketSize),
@@ -151,7 +156,7 @@ export default function Dashboard() {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center gap-3 text-slate-500">
         <Loader2 className="animate-spin text-slate-900" size={32} />
-        <p className="text-sm font-medium animate-pulse">Menghitung Health & Campaign Metrics...</p>
+        <p className="text-sm font-medium animate-pulse">Menyusun layout komprehensif...</p>
       </div>
     );
   }
@@ -249,8 +254,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 📊 GRID 7 KARTU KPI UTAMA */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
+      {/* 📊 GRID 6 KARTU KPI UTAMA (DIPERBAIKI: lg:grid-cols-6 agar di tablet/preview tetap 1 baris) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-5">
         <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[100px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">MTD Basket Size</span>
@@ -275,27 +280,6 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-lg font-black text-slate-950 tracking-tight mt-1 truncate">{kpis.adsSpentStr}</h3>
         </div>
 
-        <div className="bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-800 shadow-md flex flex-col justify-between min-h-[85px] sm:min-h-[100px]">
-          <div className="flex justify-between items-start text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Merchant Health</span>
-            <Activity size={14} className="shrink-0" />
-          </div>
-          <div className="grid grid-cols-3 gap-2 mt-1.5 divide-x divide-slate-700">
-            <div className="flex flex-col text-center">
-              <span className="text-[9px] text-emerald-400 font-bold uppercase">Grow</span>
-              <span className="text-sm font-bold text-white">{health.grow}</span>
-            </div>
-            <div className="flex flex-col text-center">
-              <span className="text-[9px] text-slate-400 font-bold uppercase">Stable</span>
-              <span className="text-sm font-bold text-white">{health.stable}</span>
-            </div>
-            <div className="flex flex-col text-center">
-              <span className="text-[9px] text-red-400 font-bold uppercase">Drop</span>
-              <span className="text-sm font-bold text-white">{health.drop}</span>
-            </div>
-          </div>
-        </div>
-
         <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[100px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Active Merchant</span>
@@ -312,7 +296,7 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-lg font-black text-slate-950 tracking-tight mt-1 truncate">{kpis.mcaDisbursedStr}</h3>
         </div>
 
-        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[100px] col-span-2 sm:col-span-1">
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[100px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Campaign Points</span>
             <Award size={14} className="shrink-0" />
@@ -321,42 +305,39 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 📈 GRAFIK DENGAN WARNA VIBRANT DAN BATANG LEBIH TEBAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 pt-2">
+      {/* 📈 GRAFIK ROW 1: TOP 10 CHARTS (DIPERBAIKI: md:grid-cols-2 agar bersisian di layar medium) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 pt-2">
         
         {/* 1. CHART TOP 10 BASKET SIZE */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="mb-4">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Basketsize</h4>
-            <p className="text-[10px] text-slate-400 mt-0.5">Nilai tertera di atas bar grafik.</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Komparasi nilai transaksi MTD vs LM.</p>
           </div>
-          <div className="h-[280px] w-full">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.topSales} margin={{ top: 20, bottom: 25, left: -25, right: 10 }}>
                 <defs>
-                  {/* Gradasi Biru Cerah (Sales LM) */}
                   <linearGradient id="salesLmGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#93c5fd" stopOpacity={0.9}/>
                     <stop offset="95%" stopColor="#dbeafe" stopOpacity={0.4}/>
                   </linearGradient>
-                  {/* Gradasi Biru Elektrik (Sales MTD) */}
                   <linearGradient id="salesMtdGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={1}/>
                     <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0.8}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={55} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={60} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.4 }} />
                 <Legend verticalAlign="top" align="right" height={30} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '10px', fontWeight: '500' }} />
                 
-                {/* Dipertebal dengan barSize={14} */}
                 <Bar dataKey="salesLM" name="LM" fill="url(#salesLmGrad)" radius={[3, 3, 0, 0]} barSize={14}>
-                  <LabelList dataKey="salesLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#64748b', fontWeight: 'bold' }} offset={4} />
+                  <LabelList dataKey="salesLM" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#64748b', fontWeight: 'bold' }} offset={4} />
                 </Bar>
                 <Bar dataKey="sales" name="MTD" fill="url(#salesMtdGrad)" radius={[3, 3, 0, 0]} barSize={14}>
-                  <LabelList dataKey="sales" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#1e3a8a', fontWeight: 'black' }} offset={4} />
+                  <LabelList dataKey="sales" position="top" formatter={formatShorthand} style={{ fontSize: 9, fill: '#1e3a8a', fontWeight: 'black' }} offset={4} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -364,49 +345,94 @@ export default function Dashboard() {
         </div>
 
         {/* 2. CHART TOP 10 ADS SPENDER */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="mb-4">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Top 10 Ads Spender</h4>
             <p className="text-[10px] text-slate-400 mt-0.5">Komparasi alokasi biaya iklan.</p>
           </div>
-          <div className="h-[280px] w-full">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.topAds} margin={{ top: 20, bottom: 25, left: -25, right: 10 }}>
                 <defs>
-                  {/* Gradasi Kuning/Emas Cerah (Ads LM) */}
                   <linearGradient id="adsLmGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#fde047" stopOpacity={0.9}/>
                     <stop offset="95%" stopColor="#fef08a" stopOpacity={0.4}/>
                   </linearGradient>
-                  {/* Gradasi Oranye/Merah (Ads MTD) */}
                   <linearGradient id="adsMtdGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ea580c" stopOpacity={1}/>
                     <stop offset="95%" stopColor="#c2410c" stopOpacity={0.8}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={55} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={60} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.4 }} />
                 <Legend verticalAlign="top" align="right" height={30} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '10px', fontWeight: '500' }} />
                 
-                {/* Dipertebal dengan barSize={14} */}
                 <Bar dataKey="adsLM" name="LM" fill="url(#adsLmGrad)" radius={[3, 3, 0, 0]} barSize={14}>
-                  <LabelList dataKey="adsLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#854d0e', fontWeight: 'bold' }} offset={4} />
+                  <LabelList dataKey="adsLM" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#854d0e', fontWeight: 'bold' }} offset={4} />
                 </Bar>
                 <Bar dataKey="ads" name="MTD" fill="url(#adsMtdGrad)" radius={[3, 3, 0, 0]} barSize={14}>
-                  <LabelList dataKey="ads" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#7c2d12', fontWeight: 'black' }} offset={4} />
+                  <LabelList dataKey="ads" position="top" formatter={formatShorthand} style={{ fontSize: 9, fill: '#7c2d12', fontWeight: 'black' }} offset={4} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 3. DONUT CHART: CAMPAIGN JOINERS */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+      </div>
+
+      {/* 📊 GRAFIK ROW 2: HEALTH & CAMPAIGN (DIPERBAIKI: md:grid-cols-2) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 pt-2">
+        
+        {/* 1. WIDGET: MERCHANT HEALTH STATUS */}
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+          <div className="mb-6">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5"><Activity size={14} className="text-slate-700"/> Merchant Health Status</h4>
+            <p className="text-[10px] text-slate-400 mt-0.5">Performa Runrate bulan berjalan vs pencapaian Bulan Lalu (LM).</p>
+          </div>
+          
+          <div className="space-y-6 flex-1 flex flex-col justify-center px-1">
+             {/* GROWING */}
+             <div>
+                <div className="flex justify-between items-center mb-2">
+                   <span className="text-emerald-600 font-bold text-xs flex items-center gap-1.5"><TrendingUp size={14}/> Growing (&gt; 5%)</span>
+                   <span className="text-slate-800 font-black text-sm">{health.grow} <span className="text-slate-400 font-medium text-[10px] ml-1">Mex ({health.growPct}%)</span></span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2.5">
+                   <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: `${health.growPct}%` }}></div>
+                </div>
+             </div>
+             
+             {/* STABLE */}
+             <div>
+                <div className="flex justify-between items-center mb-2">
+                   <span className="text-slate-500 font-bold text-xs flex items-center gap-1.5"><Minus size={14}/> Stable (± 5%)</span>
+                   <span className="text-slate-800 font-black text-sm">{health.stable} <span className="text-slate-400 font-medium text-[10px] ml-1">Mex ({health.stablePct}%)</span></span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2.5">
+                   <div className="bg-slate-400 h-2.5 rounded-full" style={{ width: `${health.stablePct}%` }}></div>
+                </div>
+             </div>
+             
+             {/* DECLINING */}
+             <div>
+                <div className="flex justify-between items-center mb-2">
+                   <span className="text-red-500 font-bold text-xs flex items-center gap-1.5"><TrendingDown size={14}/> Declining (&lt; 5%)</span>
+                   <span className="text-slate-800 font-black text-sm">{health.drop} <span className="text-slate-400 font-medium text-[10px] ml-1">Mex ({health.dropPct}%)</span></span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2.5">
+                   <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${health.dropPct}%` }}></div>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        {/* 2. DONUT CHART: CAMPAIGN JOINERS */}
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
           <div className="mb-2">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5"><PieIcon size={14}/> Campaign Distribution</h4>
-            <p className="text-[10px] text-slate-400 mt-0.5">Klasifikasi partisipasi campaign.</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Klasifikasi partisipasi campaign aktif berjalan.</p>
           </div>
           <div className="flex-1 min-h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -414,9 +440,9 @@ export default function Dashboard() {
                 <Pie
                   data={donutData}
                   cx="50%"
-                  cy="45%"
-                  innerRadius={65}
-                  outerRadius={85}
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={95}
                   paddingAngle={4}
                   dataKey="value"
                   stroke="none"
