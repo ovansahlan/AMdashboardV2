@@ -24,35 +24,32 @@ const parseNumber = (val) => {
   return isNaN(parsed) ? 0 : parsed;
 };
 
-// 🧠 ENGINE LOGIKA PARSING CAMPAIGN (KOLOM AS / INDEX 44)
+// 🧠 ENGINE LOGIKA PARSING CAMPAIGN
 const parseCampaign = (val) => {
   if (!val || typeof val !== 'string' || val.trim() === '' || val === '0' || val === '-' || val.toLowerCase().includes('no campaign') || val === '#n/a') {
     return 'Zero Campaign';
   }
   const str = val.toLowerCase();
   const hasGMS = str.includes('gms booster') || str.includes('gms cuan');
-  
-  // Memecah teks berdasarkan pemisah "|" untuk mendeteksi campaign lain
   const parts = str.split('|').map(s => s.trim()).filter(s => s !== '');
   const hasLocal = parts.some(p => !p.includes('gms booster') && !p.includes('gms cuan'));
 
   if (hasGMS && hasLocal) return 'GMS & Local';
   if (hasGMS && !hasLocal) return 'GMS Only';
   if (!hasGMS && hasLocal) return 'Local Only';
-  return 'Zero Campaign'; // Fallback aman
+  return 'Zero Campaign';
 };
 
 export default function Dashboard() {
   const { data, isLoading, error } = useSheetData('getDashboard');
   const [selectedAm, setSelectedAm] = useState('All');
 
-  // 🧠 ENGINE 1: Ekstrak Daftar Nama AM Unik
   const amList = useMemo(() => {
     if (!data || data.length === 0) return ['All'];
     const uniqueAms = new Set();
     data.forEach((row) => {
-      const amName = row[2]; // Kolom C
-      const mexName = row[4]; // Kolom E
+      const amName = row[2];
+      const mexName = row[4];
       if (amName && amName !== 'AM Name' && amName.trim() !== '' && mexName && mexName !== 'Mex Name') {
         uniqueAms.add(amName.trim());
       }
@@ -60,50 +57,37 @@ export default function Dashboard() {
     return ['All', ...Array.from(uniqueAms).sort()];
   }, [data]);
 
-  // 🧠 ENGINE 2: Agregasi 7 KPI & Komparasi Data Chart
   const metrics = useMemo(() => {
     if (!data || data.length === 0) return null;
 
-    let totalBasketSize = 0;
-    let totalInvestment = 0;
-    let totalAdsSpent = 0;
-    let totalCampaignPoints = 0;
-    let activeMerchantCount = 0;
-    let totalMcaDisbursed = 0;
-    
-    // Status Kesehatan & Campaign
+    let totalBasketSize = 0, totalInvestment = 0, totalAdsSpent = 0;
+    let totalCampaignPoints = 0, activeMerchantCount = 0, totalMcaDisbursed = 0;
     let health = { grow: 0, stable: 0, drop: 0 };
     let campaignStats = { gmsOnly: 0, gmsLocal: 0, localOnly: 0, zero: 0 };
 
     const merchantRankings = [];
 
     data.forEach((row) => {
-      const mexName = row[4]; // Kolom E
-      const amName = row[2] ? row[2].toString().trim() : ''; // Kolom C
+      const mexName = row[4];
+      const amName = row[2] ? row[2].toString().trim() : '';
       
       if (!mexName || mexName === 'Mex Name' || mexName === '#N/A') return;
-      if (selectedAm !== 'All' && amName !== selectedAm) return; // Filter AM
+      if (selectedAm !== 'All' && amName !== selectedAm) return;
 
-      const bs = parseNumber(row[19]);     // Kolom T: MTD (BS)
-      const bsLM = parseNumber(row[18]);   // Kolom S: LM (BS)
-      const rrBs = parseNumber(row[20]);   // Kolom U: Runrate (BS)
-      
-      const mi = parseNumber(row[23]);     // Kolom X: MTD (MI)
-      const ads = parseNumber(row[31]);    // Kolom AF: Total MTD (Ads)
-      const adsLM = parseNumber(row[30]);  // Kolom AE: LM (Ads)
-      const pts = parseNumber(row[45]);    // Kolom AT: Total Point Campaign
+      const bs = parseNumber(row[19]);
+      const bsLM = parseNumber(row[18]);
+      const rrBs = parseNumber(row[20]);
+      const mi = parseNumber(row[23]);
+      const ads = parseNumber(row[31]);
+      const adsLM = parseNumber(row[30]);
+      const pts = parseNumber(row[45]);
       
       const mcaStatus = row[39] ? row[39].toString().toLowerCase().trim() : ''; 
       const mcaDate = row[40] ? row[40].toString().toLowerCase().trim() : '';   
       const mcaAmount = parseNumber(row[41]);                                  
-      
-      const campaignVal = row[44];         // Kolom AS: Campaign (Index 44)
+      const campaignVal = row[44];         
 
-      // 1. Akumulasi KPI
-      totalBasketSize += bs;
-      totalInvestment += mi;
-      totalAdsSpent += ads;
-      totalCampaignPoints += pts;
+      totalBasketSize += bs; totalInvestment += mi; totalAdsSpent += ads; totalCampaignPoints += pts;
 
       if (bs > 0) activeMerchantCount++;
 
@@ -111,22 +95,23 @@ export default function Dashboard() {
         totalMcaDisbursed += mcaAmount;
       }
 
-      // 2. Logika Merchant Health (Runrate vs Last Month)
       if (bsLM > 0) {
         if (rrBs > bsLM * 1.05) health.grow++;
         else if (rrBs < bsLM * 0.95) health.drop++;
         else health.stable++;
       }
 
-      // 3. Logika Campaign Joiner
       const campType = parseCampaign(campaignVal);
       if (campType === 'GMS Only') campaignStats.gmsOnly++;
       else if (campType === 'GMS & Local') campaignStats.gmsLocal++;
       else if (campType === 'Local Only') campaignStats.localOnly++;
       else campaignStats.zero++;
 
-      // Parsing Nama untuk Chart
-      const cleanName = mexName.split('-')[0].split(',')[0].trim().substring(0, 10);
+      // 🛠️ PEMOTONGAN NAMA PINTAR (Gunakan ... jika terlalu panjang)
+      let cleanName = mexName.split('-')[0].split(',')[0].trim();
+      if (cleanName.length > 15) {
+        cleanName = cleanName.substring(0, 15) + '...';
+      }
 
       merchantRankings.push({
         name: cleanName,
@@ -144,7 +129,7 @@ export default function Dashboard() {
       { name: 'GMS & Local', value: campaignStats.gmsLocal, color: '#f59e0b' },
       { name: 'GMS Only', value: campaignStats.gmsOnly, color: '#3b82f6' },
       { name: 'Local Only', value: campaignStats.localOnly, color: '#10b981' },
-      { name: 'Zero Campaign', value: campaignStats.zero, color: '#94a3b8' }
+      { name: 'Zero Campaign', value: campaignStats.zero, color: '#cbd5e1' }
     ].filter(d => d.value > 0);
 
     return {
@@ -182,7 +167,6 @@ export default function Dashboard() {
 
   const { kpis, health, donutData, charts } = metrics;
 
-  // 🛠️ TOOLTIP BAR CHART (KOMPARASI)
   const CompareTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length >= 2) {
       const lmValue = payload[0].value;
@@ -199,7 +183,7 @@ export default function Dashboard() {
           </div>
           <div className="flex justify-between items-center text-slate-200 font-bold">
             <span>MTD:</span>
-            <span className="font-mono text-emerald-400">{formatRupiah(mtdValue)}</span>
+            <span className="font-mono text-white">{formatRupiah(mtdValue)}</span>
           </div>
           <div className="pt-1 border-t border-slate-800 flex items-center justify-between">
             <span className="text-slate-400 text-[9px]">Growth:</span>
@@ -219,7 +203,6 @@ export default function Dashboard() {
     return null;
   };
 
-  // 🛠️ TOOLTIP DONUT CHART
   const DonutTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const dt = payload[0].payload;
@@ -266,9 +249,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 📊 GRID 7 KARTU KPI UTAMA (Compact Mobile) */}
+      {/* 📊 GRID 7 KARTU KPI UTAMA */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
-        
         <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between min-h-[85px] sm:min-h-[100px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">MTD Basket Size</span>
@@ -293,7 +275,6 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-lg font-black text-slate-950 tracking-tight mt-1 truncate">{kpis.adsSpentStr}</h3>
         </div>
 
-        {/* MERCHANT HEALTH CARD BARU */}
         <div className="bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-800 shadow-md flex flex-col justify-between min-h-[85px] sm:min-h-[100px]">
           <div className="flex justify-between items-start text-slate-400">
             <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Merchant Health</span>
@@ -338,10 +319,9 @@ export default function Dashboard() {
           </div>
           <h3 className="text-sm sm:text-lg font-black text-slate-950 tracking-tight mt-1">{kpis.campaignPointsStr} <span className="text-[10px] font-normal text-slate-400">Pts</span></h3>
         </div>
-
       </div>
 
-      {/* 📈 GRAFIK (3 KOLOM ESTETIK) */}
+      {/* 📈 GRAFIK DENGAN WARNA VIBRANT DAN BATANG LEBIH TEBAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 pt-2">
         
         {/* 1. CHART TOP 10 BASKET SIZE */}
@@ -354,26 +334,29 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.topSales} margin={{ top: 20, bottom: 25, left: -25, right: 10 }}>
                 <defs>
+                  {/* Gradasi Biru Cerah (Sales LM) */}
                   <linearGradient id="salesLmGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.6}/>
-                    <stop offset="95%" stopColor="#f1f5f9" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="#93c5fd" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#dbeafe" stopOpacity={0.4}/>
                   </linearGradient>
+                  {/* Gradasi Biru Elektrik (Sales MTD) */}
                   <linearGradient id="salesMtdGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0f172a" stopOpacity={1}/>
-                    <stop offset="95%" stopColor="#334155" stopOpacity={0.8}/>
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={1}/>
+                    <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0.8}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={6} angle={-45} textAnchor="end" height={45} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={55} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.4 }} />
-                <Legend verticalAlign="top" align="right" height={30} iconType="circle" iconSize={5} wrapperStyle={{ fontSize: '10px' }} />
+                <Legend verticalAlign="top" align="right" height={30} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '10px', fontWeight: '500' }} />
                 
-                <Bar dataKey="salesLM" name="LM" fill="url(#salesLmGrad)" radius={[2, 2, 0, 0]} barSize={8}>
-                  <LabelList dataKey="salesLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#94a3b8', fontWeight: 'bold' }} offset={4} />
+                {/* Dipertebal dengan barSize={14} */}
+                <Bar dataKey="salesLM" name="LM" fill="url(#salesLmGrad)" radius={[3, 3, 0, 0]} barSize={14}>
+                  <LabelList dataKey="salesLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#64748b', fontWeight: 'bold' }} offset={4} />
                 </Bar>
-                <Bar dataKey="sales" name="MTD" fill="url(#salesMtdGrad)" radius={[2, 2, 0, 0]} barSize={8}>
-                  <LabelList dataKey="sales" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#0f172a', fontWeight: 'black' }} offset={4} />
+                <Bar dataKey="sales" name="MTD" fill="url(#salesMtdGrad)" radius={[3, 3, 0, 0]} barSize={14}>
+                  <LabelList dataKey="sales" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#1e3a8a', fontWeight: 'black' }} offset={4} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -390,33 +373,36 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.topAds} margin={{ top: 20, bottom: 25, left: -25, right: 10 }}>
                 <defs>
+                  {/* Gradasi Kuning/Emas Cerah (Ads LM) */}
                   <linearGradient id="adsLmGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.7}/>
-                    <stop offset="95%" stopColor="#f8fafc" stopOpacity={0.2}/>
+                    <stop offset="5%" stopColor="#fde047" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#fef08a" stopOpacity={0.4}/>
                   </linearGradient>
+                  {/* Gradasi Oranye/Merah (Ads MTD) */}
                   <linearGradient id="adsMtdGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#475569" stopOpacity={1}/>
-                    <stop offset="95%" stopColor="#64748b" stopOpacity={0.8}/>
+                    <stop offset="5%" stopColor="#ea580c" stopOpacity={1}/>
+                    <stop offset="95%" stopColor="#c2410c" stopOpacity={0.8}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={6} angle={-45} textAnchor="end" height={45} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={8} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={55} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip />} cursor={{ fill: '#f8fafc', opacity: 0.4 }} />
-                <Legend verticalAlign="top" align="right" height={30} iconType="circle" iconSize={5} wrapperStyle={{ fontSize: '10px' }} />
+                <Legend verticalAlign="top" align="right" height={30} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '10px', fontWeight: '500' }} />
                 
-                <Bar dataKey="adsLM" name="LM" fill="url(#adsLmGrad)" radius={[2, 2, 0, 0]} barSize={8}>
-                  <LabelList dataKey="adsLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#94a3b8', fontWeight: 'bold' }} offset={4} />
+                {/* Dipertebal dengan barSize={14} */}
+                <Bar dataKey="adsLM" name="LM" fill="url(#adsLmGrad)" radius={[3, 3, 0, 0]} barSize={14}>
+                  <LabelList dataKey="adsLM" position="top" formatter={formatShorthand} style={{ fontSize: 7, fill: '#854d0e', fontWeight: 'bold' }} offset={4} />
                 </Bar>
-                <Bar dataKey="ads" name="MTD" fill="url(#adsMtdGrad)" radius={[2, 2, 0, 0]} barSize={8}>
-                  <LabelList dataKey="ads" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#334155', fontWeight: 'black' }} offset={4} />
+                <Bar dataKey="ads" name="MTD" fill="url(#adsMtdGrad)" radius={[3, 3, 0, 0]} barSize={14}>
+                  <LabelList dataKey="ads" position="top" formatter={formatShorthand} style={{ fontSize: 8, fill: '#7c2d12', fontWeight: 'black' }} offset={4} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 3. NEW DONUT CHART: CAMPAIGN JOINERS */}
+        {/* 3. DONUT CHART: CAMPAIGN JOINERS */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
           <div className="mb-2">
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5"><PieIcon size={14}/> Campaign Distribution</h4>
