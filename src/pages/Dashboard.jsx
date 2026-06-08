@@ -10,12 +10,13 @@ const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
 };
 
+// Menambahkan awalan "Rp" agar label di atas batang juga ikut format Rupiah
 const formatShorthand = (num) => {
-  if (!num || num === 0) return '0';
-  if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`;
-  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
-  if (num >= 1e3) return `${(num / 1e3).toFixed(0)}K`;
-  return `${num}`;
+  if (!num || num === 0) return 'Rp 0';
+  if (num >= 1e9) return `Rp ${(num / 1e9).toFixed(1)}B`;
+  if (num >= 1e6) return `Rp ${(num / 1e6).toFixed(1)}M`;
+  if (num >= 1e3) return `Rp ${(num / 1e3).toFixed(0)}K`;
+  return `Rp ${num}`;
 };
 
 const parseNumber = (val) => {
@@ -180,12 +181,56 @@ export default function Dashboard() {
 
   const { kpis, health, donutData, charts } = metrics;
 
+  // CUSTOM BAR TOOLTIP (Menampilkan Rp dan Badge Persentase Tren)
+  const CompareTooltip = ({ active, payload, label, accentColor }) => {
+    if (active && payload && payload.length >= 2) {
+      const lmValue = payload[0].value;
+      const mtdValue = payload[1].value;
+      
+      let growthPct = 0;
+      if (lmValue > 0) {
+        growthPct = ((mtdValue - lmValue) / lmValue) * 100;
+      } else if (lmValue === 0 && mtdValue > 0) {
+        growthPct = 100;
+      }
+
+      return (
+        <div className="bg-white text-slate-800 text-[11px] p-3.5 rounded-2xl shadow-[0_10px_40px_rgb(0,0,0,0.15)] border border-slate-100 space-y-2.5 min-w-[200px] outline-none">
+          <p className="font-bold text-slate-900 border-b border-slate-100 pb-2 truncate">{label}</p>
+          <div className="flex justify-between items-center text-slate-500">
+            <span>Bulan Lalu:</span>
+            <span className="font-mono font-semibold text-slate-400">{formatRupiah(lmValue)}</span>
+          </div>
+          <div className="flex justify-between items-center text-slate-800 font-bold">
+            <span>Bulan Ini:</span>
+            <span className="font-mono text-sm" style={{ color: accentColor || '#00B14F' }}>{formatRupiah(mtdValue)}</span>
+          </div>
+          
+          {/* Badge Tren Naik/Turun */}
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between mt-1">
+            <span className="text-slate-400 text-[9px] uppercase tracking-wider font-semibold">Tren:</span>
+            {growthPct >= 0 ? (
+              <span className="text-[#00B14F] font-bold flex items-center text-[10px] bg-[#E5F7ED] px-2 py-1 rounded-md">
+                <TrendingUp size={12} className="mr-1"/> +{growthPct.toFixed(1)}% Naik
+              </span>
+            ) : (
+              <span className="text-[#E02424] font-bold flex items-center text-[10px] bg-red-50 px-2 py-1 rounded-md">
+                <TrendingDown size={12} className="mr-1"/> {growthPct.toFixed(1)}% Turun
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   // CUSTOM DONUT TOOLTIP
   const DonutTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const dt = payload[0].payload;
       return (
-        <div className="bg-white text-slate-800 text-[11px] p-3 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[140px]">
+        <div className="bg-white text-slate-800 text-[11px] p-3 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[140px] outline-none">
           <div className="flex items-center gap-2 mb-1.5 border-b border-slate-100 pb-1.5">
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: dt.color }}></span>
             <span className="font-bold text-slate-800">{dt.name}</span>
@@ -210,14 +255,14 @@ export default function Dashboard() {
             <Store size={24} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">GrabFood Dashboard</h1>
-            <p className="text-sm text-slate-500 font-medium mt-0.5">Ringkasan Performa Merchant & Area Manager</p>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Overview</h1>
+            <p className="text-sm text-slate-500 font-medium mt-0.5">Ringkasan Performa Merchant</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl">
           <Filter size={18} className="text-[#00B14F]" />
-          <span className="text-sm font-semibold text-slate-600">Filter AM:</span>
+          <span className="text-sm font-semibold text-slate-600">AM:</span>
           <select
             value={selectedAm}
             onChange={(e) => setSelectedAm(e.target.value)}
@@ -225,7 +270,7 @@ export default function Dashboard() {
           >
             {amList.map((am) => (
               <option key={am} value={am}>
-                {am === 'All' ? 'Tampilkan Semua AM' : am}
+                {am === 'All' ? 'All AM' : am}
               </option>
             ))}
           </select>
@@ -294,18 +339,19 @@ export default function Dashboard() {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topSales} margin={{ top: 20, right: 10, left: 10, bottom: -10 }} barGap={4}>
+              <BarChart data={charts.topSales} margin={{ top: 40, right: 10, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={80} interval={0} />
                 <YAxis hide type="number" />
-                <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Legend verticalAlign="top" align="right" height={30} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
+                <Tooltip content={<CompareTooltip accentColor="#00B14F" />} cursor={{ fill: 'transparent' }} />
+                <Legend verticalAlign="top" align="right" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
                 
-                <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={16}>
-                  <LabelList dataKey="salesLM" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold' }} />
+                {/* activeBar={false} dan outline: none untuk menghilangkan kotak hitam (focus) */}
+                <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
+                  <LabelList dataKey="salesLM" position="top" formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} offset={8} />
                 </Bar>
-                <Bar dataKey="sales" name="Bulan Ini" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={16}>
-                  <LabelList dataKey="sales" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 10, fill: '#00B14F', fontWeight: '900' }} />
+                <Bar dataKey="sales" name="Bulan Ini" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
+                  <LabelList dataKey="sales" position="top" formatter={formatShorthand} style={{ fontSize: 10, fill: '#00B14F', fontWeight: '900', outline: 'none' }} offset={8} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -320,18 +366,18 @@ export default function Dashboard() {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topAds} margin={{ top: 20, right: 10, left: 10, bottom: -10 }} barGap={4}>
+              <BarChart data={charts.topAds} margin={{ top: 40, right: 10, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={80} interval={0} />
                 <YAxis hide type="number" />
-                <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Legend verticalAlign="top" align="right" height={30} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
+                <Tooltip content={<CompareTooltip accentColor="#FF7A00" />} cursor={{ fill: 'transparent' }} />
+                <Legend verticalAlign="top" align="right" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
                 
-                <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={16}>
-                  <LabelList dataKey="adsLM" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold' }} />
+                <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
+                  <LabelList dataKey="adsLM" position="top" formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} offset={8} />
                 </Bar>
-                <Bar dataKey="ads" name="Bulan Ini" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={16}>
-                  <LabelList dataKey="ads" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 10, fill: '#FF7A00', fontWeight: '900' }} />
+                <Bar dataKey="ads" name="Bulan Ini" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
+                  <LabelList dataKey="ads" position="top" formatter={formatShorthand} style={{ fontSize: 10, fill: '#FF7A00', fontWeight: '900', outline: 'none' }} offset={8} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -398,26 +444,28 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500">Distribusi partisipasi promo toko.</p>
             </div>
           </div>
-          {/* ⚡ PERBAIKAN: Pembungkus yang solid, TANPA flex items-center, agar chart tidak ciut/hilang */}
-          <div className="h-[280px] w-full mt-2 block">
+          <div className="flex-1 min-h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
+              {/* activeShape={false} dan style outline:none untuk hilangkan outline hitam */}
               <PieChart>
                 <Pie
                   data={donutData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={75}
-                  outerRadius={105}
+                  innerRadius={80}
+                  outerRadius={110}
                   paddingAngle={3}
                   dataKey="value"
                   stroke="none"
+                  activeShape={false}
+                  style={{ outline: 'none' }}
                 >
                   {donutData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} style={{ outline: 'none' }} />
                   ))}
                 </Pie>
                 <Tooltip content={<DonutTooltip />} cursor={{ fill: 'transparent' }} />
-                <Legend verticalAlign="bottom" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '10px' }} />
+                <Legend verticalAlign="bottom" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
