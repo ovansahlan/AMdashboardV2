@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Header from './components/layout/Header';
 import Dashboard from './pages/Dashboard';
 import GMSTracker from './pages/GMSTracker';
+import MerchantDetail from './pages/MerchantDetail';
 
 // ⚡ IMPORT BARU KITA TARUH DI SINI (Harus sejajar di atas)
 import MerchantList from './pages/MerchantList'; 
@@ -33,6 +34,7 @@ export default function App() {
             <Routes>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/gms" element={<GMSTracker />} />
+              <Route path="/merchant/:id" element={<MerchantDetail />} />
               
               {/* ⚡ ROUTE BARU MENUJU MERCHANT LIST */}
               <Route path="/merchant" element={<MerchantList />} /> 

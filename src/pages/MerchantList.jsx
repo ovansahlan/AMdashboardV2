@@ -30,7 +30,7 @@ const parseCampaign = (val) => {
 
 export default function MerchantList() {
   const { data, isLoading, error } = useSheetData('getDashboard');
-  
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'basketSize', direction: 'desc' });
@@ -220,7 +220,11 @@ export default function MerchantList() {
                 </tr>
               ) : (
                 processedData.map((merchant, index) => (
-                  <tr key={merchant.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <tr 
+                    key={merchant.id} 
+                    onClick={() => navigate(`/merchant/${merchant.mexId}`)} 
+                    className="hover:bg-slate-100 transition-colors group cursor-pointer"
+                 >
                     <td className="p-4 text-center font-bold text-slate-400">{index + 1}</td>
                     <td className="p-4">
                       <div className="font-black text-slate-800">{merchant.mexName}</div>
