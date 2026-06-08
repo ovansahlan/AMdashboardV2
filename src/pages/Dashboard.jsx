@@ -4,13 +4,12 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, Activity, PieChart as PieIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 // ==========================================
-// 1. HELPER FUNCTIONS 
+// 1. HELPER FUNCTIONS
 // ==========================================
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
 };
 
-// Menambahkan awalan "Rp" agar label di atas batang juga ikut format Rupiah
 const formatShorthand = (num) => {
   if (!num || num === 0) return 'Rp 0';
   if (num >= 1e9) return `Rp ${(num / 1e9).toFixed(1)}B`;
@@ -124,8 +123,9 @@ export default function Dashboard() {
         name: cleanName,
         sales: bs,
         salesLM: bsLM,
+        salesRR: rrBs,  // ⚡ Tambahan: Menyimpan Runrate Sales untuk Tooltip
         ads: ads,
-        adsLM: adsLM
+        adsLM: adsLM,
       });
     });
 
@@ -181,41 +181,52 @@ export default function Dashboard() {
 
   const { kpis, health, donutData, charts } = metrics;
 
-  // CUSTOM BAR TOOLTIP (Menampilkan Rp dan Badge Persentase Tren)
-  const CompareTooltip = ({ active, payload, label, accentColor }) => {
+  // ⚡ PERBAIKAN: Tooltip menghitung persentase Growth berdasarkan Runrate vs Last Month
+  const CompareTooltip = ({ active, payload, label, accentColor, useRunrate }) => {
     if (active && payload && payload.length >= 2) {
       const lmValue = payload[0].value;
       const mtdValue = payload[1].value;
       
+      // Jika flag useRunrate aktif (untuk Basketsize), gunakan payload salesRR. Jika tidak (untuk Ads), gunakan mtdValue biasa
+      const targetCompareValue = useRunrate ? payload[0].payload.salesRR : mtdValue;
+      
       let growthPct = 0;
       if (lmValue > 0) {
-        growthPct = ((mtdValue - lmValue) / lmValue) * 100;
-      } else if (lmValue === 0 && mtdValue > 0) {
+        growthPct = ((targetCompareValue - lmValue) / lmValue) * 100;
+      } else if (lmValue === 0 && targetCompareValue > 0) {
         growthPct = 100;
       }
 
       return (
-        <div className="bg-white text-slate-800 text-[11px] p-3.5 rounded-2xl shadow-[0_10px_40px_rgb(0,0,0,0.15)] border border-slate-100 space-y-2.5 min-w-[200px] outline-none">
+        <div className="bg-white text-slate-800 text-[11px] p-4 rounded-2xl shadow-[0_10px_40px_rgb(0,0,0,0.15)] border border-slate-100 space-y-3 min-w-[220px] outline-none">
           <p className="font-bold text-slate-900 border-b border-slate-100 pb-2 truncate">{label}</p>
           <div className="flex justify-between items-center text-slate-500">
             <span>Bulan Lalu:</span>
             <span className="font-mono font-semibold text-slate-400">{formatRupiah(lmValue)}</span>
           </div>
           <div className="flex justify-between items-center text-slate-800 font-bold">
-            <span>Bulan Ini:</span>
+            <span>Bulan Ini (MTD):</span>
             <span className="font-mono text-sm" style={{ color: accentColor || '#00B14F' }}>{formatRupiah(mtdValue)}</span>
           </div>
           
-          {/* Badge Tren Naik/Turun */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between mt-1">
-            <span className="text-slate-400 text-[9px] uppercase tracking-wider font-semibold">Tren:</span>
+          {useRunrate && (
+            <div className="flex justify-between items-center text-slate-500">
+              <span>Proyeksi Runrate:</span>
+              <span className="font-mono font-bold text-slate-600">{formatRupiah(targetCompareValue)}</span>
+            </div>
+          )}
+          
+          <div className="pt-2 border-t border-slate-100 mt-1">
+            <span className="text-slate-400 text-[9px] uppercase tracking-wider font-semibold block mb-1.5">
+              {useRunrate ? 'Tren (Runrate vs LM):' : 'Tren (MTD vs LM):'}
+            </span>
             {growthPct >= 0 ? (
-              <span className="text-[#00B14F] font-bold flex items-center text-[10px] bg-[#E5F7ED] px-2 py-1 rounded-md">
-                <TrendingUp size={12} className="mr-1"/> +{growthPct.toFixed(1)}% Naik
+              <span className="text-[#00B14F] font-bold inline-flex items-center text-[10px] bg-[#E5F7ED] px-2.5 py-1 rounded-md">
+                <TrendingUp size={12} className="mr-1.5"/> +{growthPct.toFixed(1)}% Naik
               </span>
             ) : (
-              <span className="text-[#E02424] font-bold flex items-center text-[10px] bg-red-50 px-2 py-1 rounded-md">
-                <TrendingDown size={12} className="mr-1"/> {growthPct.toFixed(1)}% Turun
+              <span className="text-[#E02424] font-bold inline-flex items-center text-[10px] bg-red-50 px-2.5 py-1 rounded-md">
+                <TrendingDown size={12} className="mr-1.5"/> {growthPct.toFixed(1)}% Turun
               </span>
             )}
           </div>
@@ -225,7 +236,6 @@ export default function Dashboard() {
     return null;
   };
 
-  // CUSTOM DONUT TOOLTIP
   const DonutTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const dt = payload[0].payload;
@@ -279,7 +289,7 @@ export default function Dashboard() {
 
       {/* --- 6 KPI CARDS --- */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:border-[#00B14F] transition-all cursor-default">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <ShoppingCart size={16} className="text-[#00B14F]" />
             <span className="text-xs font-bold uppercase tracking-wider">Basket Size</span>
@@ -287,7 +297,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-black text-slate-900 truncate">{kpis.basketSizeStr}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:border-[#00B14F] transition-all cursor-default">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <Coins size={16} className="text-[#00B14F]" />
             <span className="text-xs font-bold uppercase tracking-wider">Investment</span>
@@ -295,7 +305,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-black text-slate-900 truncate">{kpis.investmentStr}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:border-[#FF7A00] transition-all cursor-default">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <Megaphone size={16} className="text-[#FF7A00]" />
             <span className="text-xs font-bold uppercase tracking-wider">Ads Spent</span>
@@ -303,7 +313,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-black text-slate-900 truncate">{kpis.adsSpentStr}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:border-[#00B14F] transition-all cursor-default">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <Store size={16} className="text-[#00B14F]" />
             <span className="text-xs font-bold uppercase tracking-wider">Active Toko</span>
@@ -311,7 +321,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-black text-slate-900">{kpis.activeMerchants}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:border-[#00B14F] transition-all cursor-default">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <Wallet size={16} className="text-[#00B14F]" />
             <span className="text-xs font-bold uppercase tracking-wider">MCA Disburse</span>
@@ -319,7 +329,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-black text-slate-900 truncate">{kpis.mcaDisbursedStr}</h3>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:border-[#00B14F] transition-all cursor-default">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <Award size={16} className="text-[#00B14F]" />
             <span className="text-xs font-bold uppercase tracking-wider">Camp Points</span>
@@ -339,19 +349,19 @@ export default function Dashboard() {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topSales} margin={{ top: 40, right: 10, left: 10, bottom: 20 }}>
+              <BarChart data={charts.topSales} margin={{ top: 40, right: 10, left: 10, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={80} interval={0} />
                 <YAxis hide type="number" />
-                <Tooltip content={<CompareTooltip accentColor="#00B14F" />} cursor={{ fill: 'transparent' }} />
+                {/* ⚡ PERBAIKAN: Mengaktifkan parameter useRunrate agar persentase trend menggunakan perbandingan Runrate */}
+                <Tooltip content={<CompareTooltip accentColor="#00B14F" useRunrate={true} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="right" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
                 
-                {/* activeBar={false} dan outline: none untuk menghilangkan kotak hitam (focus) */}
                 <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="salesLM" position="top" formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} offset={8} />
+                  <LabelList dataKey="salesLM" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
                 </Bar>
                 <Bar dataKey="sales" name="Bulan Ini" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="sales" position="top" formatter={formatShorthand} style={{ fontSize: 10, fill: '#00B14F', fontWeight: '900', outline: 'none' }} offset={8} />
+                  <LabelList dataKey="sales" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 10, fill: '#00B14F', fontWeight: '900', outline: 'none' }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -366,18 +376,19 @@ export default function Dashboard() {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topAds} margin={{ top: 40, right: 10, left: 10, bottom: 20 }}>
+              <BarChart data={charts.topAds} margin={{ top: 40, right: 10, left: 10, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={80} interval={0} />
                 <YAxis hide type="number" />
-                <Tooltip content={<CompareTooltip accentColor="#FF7A00" />} cursor={{ fill: 'transparent' }} />
+                {/* ⚡ Ads menggunakan MTD biasa untuk Trend */}
+                <Tooltip content={<CompareTooltip accentColor="#FF7A00" useRunrate={false} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="right" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
                 
                 <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="adsLM" position="top" formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} offset={8} />
+                  <LabelList dataKey="adsLM" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
                 </Bar>
                 <Bar dataKey="ads" name="Bulan Ini" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="ads" position="top" formatter={formatShorthand} style={{ fontSize: 10, fill: '#FF7A00', fontWeight: '900', outline: 'none' }} offset={8} />
+                  <LabelList dataKey="ads" position="top" angle={-90} offset={20} formatter={formatShorthand} style={{ fontSize: 10, fill: '#FF7A00', fontWeight: '900', outline: 'none' }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -395,7 +406,7 @@ export default function Dashboard() {
             <div className="p-2 bg-[#E5F7ED] rounded-xl"><Activity size={20} className="text-[#00B14F]"/></div>
             <div>
               <h4 className="text-base font-black text-slate-900">Merchant Health</h4>
-              <p className="text-xs text-slate-500">Performa pertumbuhan toko bulan ini.</p>
+              <p className="text-xs text-slate-500">Performa Runrate vs Target Bulan Lalu.</p>
             </div>
           </div>
           
@@ -444,16 +455,16 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500">Distribusi partisipasi promo toko.</p>
             </div>
           </div>
-          <div className="flex-1 min-h-[250px] w-full">
+          {/* ⚡ PERBAIKAN: Donut offset diselesaikan dengan cy="50%" dan margin top/bottom */}
+          <div className="h-[280px] w-full mt-2">
             <ResponsiveContainer width="100%" height="100%">
-              {/* activeShape={false} dan style outline:none untuk hilangkan outline hitam */}
-              <PieChart>
+              <PieChart margin={{ top: 10, bottom: 20 }}>
                 <Pie
                   data={donutData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={80}
-                  outerRadius={110}
+                  innerRadius={70}
+                  outerRadius={100}
                   paddingAngle={3}
                   dataKey="value"
                   stroke="none"
@@ -465,7 +476,7 @@ export default function Dashboard() {
                   ))}
                 </Pie>
                 <Tooltip content={<DonutTooltip />} cursor={{ fill: 'transparent' }} />
-                <Legend verticalAlign="bottom" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
+                <Legend verticalAlign="bottom" height={20} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
