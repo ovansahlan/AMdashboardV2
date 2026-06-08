@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+// ⚡ PERBAIKAN: useNavigate sudah ditambahkan di sini
+import { useNavigate } from 'react-router-dom'; 
 import { useSheetData } from '../hooks/useSheetData';
 import { Loader2, AlertCircle, Search, Filter, ArrowUpDown, ChevronUp, ChevronDown, Store } from 'lucide-react';
 
@@ -30,7 +32,8 @@ const parseCampaign = (val) => {
 
 export default function MerchantList() {
   const { data, isLoading, error } = useSheetData('getDashboard');
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // ⚡ PERBAIKAN: Engine navigasi diaktifkan
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'basketSize', direction: 'desc' });
@@ -220,11 +223,12 @@ export default function MerchantList() {
                 </tr>
               ) : (
                 processedData.map((merchant, index) => (
-                    <tr 
+                  // ⚡ PERBAIKAN: Klik pada baris akan membuka halaman Merchant Detail
+                  <tr 
                     key={merchant.id} 
-                    onClick={() => navigate(`/merchant/${merchant.mexId}`)} 
+                    onClick={() => navigate(`/merchant/${merchant.mexId}`)}
                     className="hover:bg-slate-100 transition-colors group cursor-pointer"
-                 >
+                  >
                     <td className="p-4 text-center font-bold text-slate-400">{index + 1}</td>
                     <td className="p-4">
                       <div className="font-black text-slate-800">{merchant.mexName}</div>
