@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSheetData } from '../hooks/useSheetData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
-import { ArrowLeft, Store, UserCircle, Wallet, Megaphone, ShoppingCart, Coins, Award, Loader2, AlertCircle, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, Store, UserCircle, Wallet, Megaphone, ShoppingCart, Coins, Award, Loader2, AlertCircle, Calendar, CheckCircle2, Clock, MapPin, ExternalLink, MessageCircle, Copy } from 'lucide-react';
 
 // ==========================================
-// HELPER FUNCTIONS
+// 1. HELPER FUNCTIONS
 // ==========================================
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
@@ -41,12 +41,32 @@ const parseCampaign = (val) => {
   return 'Zero Campaign';
 };
 
+// Helper Format WhatsApp
+const getWhatsAppLink = (phoneStr) => {
+  if (!phoneStr || phoneStr === '-') return '';
+  let cleanNumber = phoneStr.toString().replace(/[^0-9]/g, '');
+  if (cleanNumber.startsWith('0')) {
+    cleanNumber = '62' + cleanNumber.substring(1);
+  }
+  return `https://wa.me/${cleanNumber}`;
+};
+
+// ==========================================
+// 2. MAIN COMPONENT
+// ==========================================
 export default function MerchantDetail() {
-  const { id } = useParams(); // Mengambil ID dari URL
+  const { id } = useParams(); 
   const navigate = useNavigate();
   const { data, isLoading, error } = useSheetData('getDashboard');
 
-  // ENGINE: Mencari data spesifik untuk 1 Merchant
+  const [copiedField, setCopiedField] = useState('');
+
+  const handleCopyShortcut = (text, fieldName) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(''), 2000); 
+  };
+
   const merchant = useMemo(() => {
     if (!data || data.length === 0 || !id) return null;
 
@@ -62,26 +82,32 @@ export default function MerchantDetail() {
         const bsLM = parseNumber(row[18]);
         const bsMTD = parseNumber(row[19]);
         const bsRR = parseNumber(row[20]);
-        
         const invMTD = parseNumber(row[23]);
-        
         const adsLM = parseNumber(row[30]);
         const adsMTD = parseNumber(row[31]);
-        
         const mcaStatus = row[39] ? row[39].toString().trim() : 'No Data';
         const mcaDate = row[40] ? row[40].toString().trim() : '-';
         const mcaAmount = parseNumber(row[41]);
-        
         const campaignRaw = row[44] ? row[44].toString().trim() : '';
         const campaignStatus = parseCampaign(campaignRaw);
         const campaignPts = parseNumber(row[45]);
+
+        // ⚡ MAPPING BARU DARI PENGGUNA
+        const address = row[9] ? row[9].toString().trim() : '';      // Kolom J (Index 9)
+        const ownerName = row[10] ? row[10].toString().trim() : '';  // Kolom K (Index 10)
+        const phone = row[11] ? row[11].toString().trim() : '';      // Kolom L (Index 11)
+        const email = row[12] ? row[12].toString().trim() : '';      // Kolom M (Index 12)
+        const baseComm = row[13] ? row[13].toString().trim() : '';   // Kolom N (Index 13)
+        const latitude = row[14] ? row[14].toString().trim() : '';   // Kolom O (Index 14)
+        const longitude = row[15] ? row[15].toString().trim() : '';  // Kolom P (Index 15)
 
         foundMerchant = {
           mexId, mexName, amName,
           bsLM, bsMTD, bsRR, invMTD,
           adsLM, adsMTD,
           mcaStatus, mcaDate, mcaAmount,
-          campaignRaw, campaignStatus, campaignPts
+          campaignRaw, campaignStatus, campaignPts,
+          address, ownerName, phone, email, baseComm, latitude, longitude
         };
       }
     });
@@ -89,7 +115,6 @@ export default function MerchantDetail() {
     return foundMerchant;
   }, [data, id]);
 
-  // Siapkan data untuk Mini Bar Chart
   const chartData = useMemo(() => {
     if (!merchant) return [];
     return [
@@ -117,7 +142,7 @@ export default function MerchantDetail() {
       <div className="p-6 m-6 bg-red-50 border border-red-200 rounded-3xl text-red-700 flex flex-col items-center justify-center min-h-[50vh] text-center">
         <AlertCircle size={48} className="mb-4 text-red-400" />
         <h2 className="text-xl font-black mb-2">Merchant Tidak Ditemukan</h2>
-        <p className="font-medium text-red-600/80 mb-6">ID Merchant <b>{id}</b> tidak terdaftar dalam database saat ini.</p>
+        <p className="font-medium text-red-600/80 mb-6">ID Merchant <b>{id}</b> tidak terdaftar dalam database.</p>
         <button onClick={() => navigate('/merchant')} className="px-6 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-xl transition-colors">
           Kembali ke Daftar Merchant
         </button>
@@ -125,7 +150,6 @@ export default function MerchantDetail() {
     );
   }
 
-  // Tentukan warna badge Campaign
   const getCampaignBadge = (status) => {
     switch(status) {
       case 'GMS & Local': return 'bg-[#E5F7ED] text-[#00B14F] border-[#00B14F]/20';
@@ -148,7 +172,7 @@ export default function MerchantDetail() {
         </button>
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Merchant Profile</h1>
-          <p className="text-sm text-slate-500 font-medium mt-0.5">Detail performa dan analitik toko spesifik.</p>
+          <p className="text-sm text-slate-500 font-medium mt-0.5">Detail performa dan informasi operasional toko.</p>
         </div>
       </div>
 
@@ -156,15 +180,32 @@ export default function MerchantDetail() {
       <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-40 h-40 bg-[#00B14F]/5 rounded-bl-full -mr-10 -mt-10"></div>
         
-        <div className="flex items-center gap-5 relative z-10">
+        <div className="flex items-center gap-5 relative z-10 w-full md:w-auto">
           <div className="w-20 h-20 bg-[#00B14F] rounded-2xl flex items-center justify-center shadow-lg shadow-[#00B14F]/20 shrink-0">
             <Store size={40} className="text-white" />
           </div>
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{merchant.mexName}</h2>
-            <div className="flex flex-wrap items-center gap-3 mt-2">
-              <span className="px-3 py-1 bg-slate-100 text-slate-600 font-mono font-bold text-xs rounded-lg border border-slate-200">
+          <div className="space-y-2 flex-1">
+            <div className="flex items-center gap-2 group flex-wrap">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{merchant.mexName}</h2>
+              <button 
+                onClick={() => handleCopyShortcut(merchant.mexName, 'name')}
+                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-[#00B14F] rounded-xl transition-all"
+                title="Salin Nama Merchant"
+              >
+                {copiedField === 'name' ? <CheckCircle2 size={16} className="text-[#00B14F]" /> : <Copy size={16} />}
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="px-3 py-1 bg-slate-100 text-slate-600 font-mono font-bold text-xs rounded-lg border border-slate-200 flex items-center gap-2">
                 ID: {merchant.mexId}
+                <button 
+                  onClick={() => handleCopyShortcut(merchant.mexId, 'id')}
+                  className="hover:bg-slate-200 text-slate-400 hover:text-[#00B14F] rounded p-0.5 transition-all"
+                  title="Salin MEX ID"
+                >
+                  {copiedField === 'id' ? <CheckCircle2 size={12} className="text-[#00B14F]" /> : <Copy size={12} />}
+                </button>
               </span>
               <span className={`px-3 py-1 font-bold text-xs rounded-lg border ${getCampaignBadge(merchant.campaignStatus)}`}>
                 {merchant.campaignStatus}
@@ -216,7 +257,7 @@ export default function MerchantDetail() {
       {/* --- ROW CHARTS & DETAILS --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* GRAFIK PERBANDINGAN LM VS MTD UNTUK 1 TOKO INI */}
+        {/* GRAFIK PERBANDINGAN LM VS MTD */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
           <div className="mb-6 w-full text-center border-b border-slate-100 pb-4">
             <h4 className="text-base font-black text-slate-900">Histori Performa</h4>
@@ -242,9 +283,78 @@ export default function MerchantDetail() {
           </div>
         </div>
 
-        {/* DETAIL MCA & PROMO RAW */}
+        {/* SIDE PANEL */}
         <div className="space-y-6">
           
+          {/* ⚡ INFO OWNER & LOKASI (DENGAN GMAPS & WA LINK) */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#E5F7ED] rounded-xl"><MapPin size={20} className="text-[#00B14F]" /></div>
+                <h4 className="text-base font-black text-slate-900">Info Owner & Lokasi</h4>
+              </div>
+              {merchant.baseComm && merchant.baseComm !== '-' && merchant.baseComm !== '0' && (
+                <span className="px-3 py-1 bg-slate-50 text-slate-600 font-black font-mono text-xs rounded-lg border border-slate-200">
+                  Comm: {merchant.baseComm}
+                </span>
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              {/* Nama Owner & Email */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Nama Owner</span>
+                  <p className="text-sm font-black text-slate-800">{merchant.ownerName || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Email Aktif</span>
+                  <p className="text-sm font-bold text-slate-800 truncate" title={merchant.email}>{merchant.email || '-'}</p>
+                </div>
+              </div>
+
+              {/* Alamat & Clickable Google Maps Link */}
+              <div className="pt-2 border-t border-slate-50">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Alamat Outlet</span>
+                {merchant.latitude && merchant.longitude && merchant.latitude !== '-' ? (
+                  <a 
+                    href={`https://www.google.com/maps?q=${merchant.latitude},${merchant.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-semibold text-slate-700 hover:text-[#00B14F] transition-all flex items-start gap-2 group p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#00B14F]/30"
+                  >
+                    <span className="underline decoration-dotted group-hover:decoration-solid flex-1">
+                      {merchant.address || 'Lihat Lokasi Koordinat di Google Maps'}
+                    </span>
+                    <ExternalLink size={14} className="text-slate-400 group-hover:text-[#00B14F] shrink-0 mt-0.5" />
+                  </a>
+                ) : (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-sm font-medium text-slate-700">
+                    {merchant.address || 'Detail alamat/koordinat tidak tersedia'}
+                  </div>
+                )}
+              </div>
+              
+              {/* No HP & Clickable WhatsApp Integration */}
+              <div className="pt-2 border-t border-slate-50">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Kontak Operasional</span>
+                {merchant.phone && merchant.phone !== '-' && merchant.phone !== '0' ? (
+                  <a 
+                    href={getWhatsAppLink(merchant.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2.5 px-4 py-2.5 bg-[#E5F7ED] text-[#00B14F] hover:bg-[#00B14F] hover:text-white font-black text-xs rounded-xl border border-[#00B14F]/10 transition-all shadow-sm w-full justify-center group"
+                  >
+                    <MessageCircle size={16} className="transition-transform group-hover:scale-110" />
+                    <span>Hubungi via WhatsApp ({merchant.phone})</span>
+                  </a>
+                ) : (
+                  <p className="text-xs font-bold text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Nomor Handphone tidak tersedia</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* KARTU MCA */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
