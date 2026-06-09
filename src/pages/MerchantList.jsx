@@ -14,7 +14,6 @@ const parseNumber = (val) => {
   return isNaN(parseFloat(cleanStr)) ? 0 : parseFloat(cleanStr);
 };
 
-// ⚡ LOGIKA BARU: Menambahkan deteksi Booster+
 const parseCampaign = (val) => {
   if (!val || typeof val !== 'string' || val.trim() === '' || val === '0' || val === '-' || val.toLowerCase().includes('no campaign') || val === '#n/a') {
     return 'Zero Campaign';
@@ -22,7 +21,6 @@ const parseCampaign = (val) => {
   
   const str = val.toLowerCase();
   
-  // Prioritas utama: Deteksi Booster+ (Bisa ditulis "booster+" atau "booster +")
   if (str.includes('booster+') || str.includes('booster +')) {
     return 'Booster+';
   }
@@ -91,7 +89,7 @@ export default function MerchantList() {
       rawList.push({
         id: index,
         mexId: mexId.toString().trim(),
-        mexName: mexName.split('-')[0].split(',')[0].trim(),
+        mexName: mexName.split('-')[0].split(',')[0].trim(), // Ambil nama utuh sebelum koma/strip pertama
         amName: rawAmName,
         shortAmName: shortAmName, 
         basketSize: parseNumber(row[19]),
@@ -131,10 +129,9 @@ export default function MerchantList() {
 
   const getSortIcon = (key) => sortConfig.key !== key ? <ArrowUpDown size={12} className="text-slate-300 ml-1" /> : (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-[#00B14F] ml-1" /> : <ChevronDown size={12} className="text-[#00B14F] ml-1" />);
 
-  // ⚡ TAMPILAN BADGE BARU: Booster+ mendapatkan warna ungu eksklusif
   const getCampaignBadge = (status) => {
     switch(status) {
-      case 'Booster+': return 'bg-[#F4F0FF] text-[#7E22CE] border-[#7E22CE]/20'; // Ungu Premium
+      case 'Booster+': return 'bg-[#F4F0FF] text-[#7E22CE] border-[#7E22CE]/20';
       case 'GMS & Local': return 'bg-[#E5F7ED] text-[#00B14F] border-[#00B14F]/20';
       case 'GMS Only': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
       case 'Local Only': return 'bg-[#FFF2E5] text-[#FF7A00] border-[#FF7A00]/20';
@@ -148,7 +145,6 @@ export default function MerchantList() {
   return (
     <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0">
       
-      {/* HEADER & GLOBAL AM FILTER */}
       <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0">
@@ -175,7 +171,6 @@ export default function MerchantList() {
         </div>
       </div>
 
-      {/* KONTROL PENCARIAN & FILTER LOKAL */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 bg-white p-2.5 sm:p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex-1 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-50 rounded-xl border border-slate-100 focus-within:border-[#00B14F] transition-colors">
           <Search size={16} className="text-slate-400 shrink-0" />
@@ -189,7 +184,7 @@ export default function MerchantList() {
           <Filter size={16} className="text-slate-400 shrink-0" />
           <select value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} className="text-xs sm:text-sm font-bold text-slate-800 bg-transparent outline-none cursor-pointer w-full">
             <option value="All">Semua Promo</option>
-            <option value="Booster+">Booster+</option> {/* ⚡ Menambah opsi filter Booster+ */}
+            <option value="Booster+">Booster+</option>
             <option value="GMS & Local">GMS & Local</option>
             <option value="GMS Only">GMS Only</option>
             <option value="Local Only">Local Only</option>
@@ -198,15 +193,15 @@ export default function MerchantList() {
         </div>
       </div>
 
-      {/* TABEL MERCHANT */}
       <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto pb-2">
-          <table className="w-full text-left border-collapse whitespace-nowrap min-w-max md:min-w-[700px]">
+          {/* Lebar tabel kita sesuaikan agar lebih leluasa */}
+          <table className="w-full text-left border-collapse whitespace-nowrap min-w-max md:min-w-[850px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500">
                 <th className="px-2.5 py-3 sm:p-4 w-8 sm:w-12 text-center font-bold">No</th>
-                {/* ⚡ PERBAIKAN: Membatasi lebar kolom Merchant Info secara eksplisit */}
-                <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors w-[160px] sm:w-[220px]" onClick={() => requestSort('mexName')}>
+                {/* ⚡ PERBAIKAN: Kolom ini diperlebar sangat drastis (hingga 400px di Desktop, 240px di HP) */}
+                <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors w-[240px] sm:w-[320px] lg:w-[400px]" onClick={() => requestSort('mexName')}>
                   <div className="flex items-center">Merchant Info {getSortIcon('mexName')}</div>
                 </th>
                 <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('basketSize')}>
@@ -231,11 +226,11 @@ export default function MerchantList() {
                   <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                     <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
                     
-                    {/* ⚡ PERBAIKAN: Menerapkan max-width dan truncate pada Nama Merchant */}
-                    <td className="px-2.5 py-3 sm:p-4 max-w-[160px] sm:max-w-[220px]">
+                    {/* ⚡ PERBAIKAN: Max-width mengikuti lebar header agar nama panjang tidak cepat terpotong */}
+                    <td className="px-2.5 py-3 sm:p-4 max-w-[240px] sm:max-w-[320px] lg:max-w-[400px]">
                       <div 
                         className="font-black text-slate-800 text-[13px] sm:text-sm truncate" 
-                        title={merchant.mexName} // Hover untuk melihat nama penuh
+                        title={merchant.mexName} 
                       >
                         {merchant.mexName}
                       </div>
