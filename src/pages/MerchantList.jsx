@@ -25,7 +25,6 @@ const parseCampaign = (val) => {
   return 'Zero Campaign';
 };
 
-// ⚡ ENGINE: Pemotong Nama AM
 const getShortAmName = (fullName) => {
   if (!fullName) return 'Unassigned';
   const name = fullName.toLowerCase();
@@ -33,8 +32,6 @@ const getShortAmName = (fullName) => {
   if (name.includes('dadan')) return 'Dadan';
   if (name.includes('regianaldo') || name.includes('aldo')) return 'Aldo';
   if (name.includes('saeful hikam') || name.includes('hikam') || name.includes('hilkam')) return 'Hilkam';
-  
-  // Fallback: Ambil kata pertama
   return fullName.split(' ')[0];
 };
 
@@ -47,35 +44,48 @@ export default function MerchantList() {
   const [campaignFilter, setCampaignFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'basketSize', direction: 'desc' });
 
-  // 1. Ekstrak Daftar AM Asli (Untuk Dropdown)
+  // ⚡ PERBAIKAN BUG 1: Filter ketat agar "Last Update" atau "Tanggal" tidak masuk ke list AM
   const amList = useMemo(() => {
     if (!data || data.length === 0) return ['All'];
     const uniqueAms = new Set();
     data.forEach(row => {
       const amName = row[2];
-      if (amName && amName !== 'AM Name' && amName.trim() !== '') uniqueAms.add(amName.trim());
+      const mexName = row[4]; 
+      
+      if (
+        amName && 
+        typeof amName === 'string' &&
+        amName.trim() !== '' && 
+        amName !== 'AM Name' && 
+        !amName.toLowerCase().includes('update') && 
+        !amName.toLowerCase().includes('tanggal') &&
+        mexName && 
+        mexName !== 'Mex Name'
+      ) {
+        uniqueAms.add(amName.trim());
+      }
     });
     return ['All', ...Array.from(uniqueAms).sort()];
   }, [data]);
 
-  // 2. Parsing Database Merchant
+  // Parsing Database
   const merchants = useMemo(() => {
     if (!data || data.length === 0) return [];
     const rawList = [];
     data.forEach((row, index) => {
       const mexName = row[4];
-      if (!mexName || mexName === 'Mex Name' || mexName === '#N/A') return;
+      if (!mexName || mexName === 'Mex Name' || mexName === '#N/A' || mexName.toString().toLowerCase().includes('update')) return;
 
       const rawAmName = row[2] ? row[2].toString().trim() : 'Unassigned';
-      const shortAmName = getShortAmName(rawAmName); // ⚡ Eksekusi pemotongan nama AM
+      const shortAmName = getShortAmName(rawAmName); 
       const mexId = row[3] && row[3] !== '' ? row[3] : `MEX-${1000 + index}`; 
       
       rawList.push({
         id: index,
         mexId: mexId.toString().trim(),
         mexName: mexName.split('-')[0].split(',')[0].trim(),
-        amName: rawAmName,        // AM Asli untuk filtering
-        shortAmName: shortAmName, // AM Pendek untuk tampilan
+        amName: rawAmName,
+        shortAmName: shortAmName, 
         basketSize: parseNumber(row[19]),
         adsSpent: parseNumber(row[31]),
         mcaAmount: parseNumber(row[41]),
@@ -85,20 +95,13 @@ export default function MerchantList() {
     return rawList;
   }, [data]);
 
-  // 3. Eksekusi Filter & Sorting
   const processedData = useMemo(() => {
     let filtered = [...merchants];
-
-    // Filter Global
-    if (selectedAm !== 'All') {
-      filtered = filtered.filter(m => m.amName === selectedAm);
-    }
-
+    if (selectedAm !== 'All') filtered = filtered.filter(m => m.amName === selectedAm);
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       filtered = filtered.filter(m => m.mexName.toLowerCase().includes(lowerSearch) || m.mexId.toLowerCase().includes(lowerSearch));
     }
-
     if (campaignFilter !== 'All') filtered = filtered.filter(m => m.campaignStatus === campaignFilter);
 
     if (sortConfig.key) {
@@ -109,7 +112,6 @@ export default function MerchantList() {
         return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
       });
     }
-
     return filtered;
   }, [merchants, searchTerm, campaignFilter, selectedAm, sortConfig]);
 
@@ -119,7 +121,7 @@ export default function MerchantList() {
     setSortConfig({ key, direction });
   };
 
-  const getSortIcon = (key) => sortConfig.key !== key ? <ArrowUpDown size={14} className="text-slate-300 ml-1" /> : (sortConfig.direction === 'asc' ? <ChevronUp size={14} className="text-[#00B14F] ml-1" /> : <ChevronDown size={14} className="text-[#00B14F] ml-1" />);
+  const getSortIcon = (key) => sortConfig.key !== key ? <ArrowUpDown size={12} className="text-slate-300 ml-1" /> : (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-[#00B14F] ml-1" /> : <ChevronDown size={12} className="text-[#00B14F] ml-1" />);
 
   const getCampaignBadge = (status) => {
     switch(status) {
@@ -130,50 +132,53 @@ export default function MerchantList() {
     }
   };
 
-  if (isLoading) return <div className="flex justify-center min-h-[70vh] items-center"><Loader2 className="animate-spin text-[#00B14F]" size={40} /></div>;
-  if (error || !merchants.length) return <div className="p-6 m-6 bg-red-50 text-red-700 font-bold rounded-xl">Data kosong/Error: {error}</div>;
+  if (isLoading) return <div className="flex justify-center min-h-[70vh] items-center"><Loader2 className="animate-spin text-[#00B14F]" size={36} /></div>;
+  if (error || !merchants.length) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-sm">Data kosong/Error: {error}</div>;
 
   return (
-    <div className="bg-[#F7F9FA] min-h-full space-y-4 sm:space-y-6">
+    // ⚡ PERBAIKAN BUG 2: Space & Padding direnggangkan untuk Desktop, tapi dipadatkan (Zoom Out effect) untuk Mobile
+    <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0">
       
-      <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0">
-            <Store size={24} className="text-white" />
+      {/* HEADER & GLOBAL AM FILTER */}
+      <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0">
+            <Store size={20} className="text-white sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Merchant Database</h1>
-            <p className="text-sm text-slate-500 font-medium mt-0.5">Toko tersaring: <span className="font-bold text-[#00B14F]">{processedData.length}</span> Outlet</p>
+            <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Merchant List</h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Toko tersaring: <span className="font-bold text-[#00B14F]">{processedData.length}</span> Outlet</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl w-full sm:w-auto">
-          <Filter size={18} className="text-[#00B14F] shrink-0" />
-          <span className="text-sm font-semibold text-slate-600 shrink-0">Filter AM:</span>
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl w-full sm:w-auto">
+          <Filter size={16} className="text-[#00B14F] shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold text-slate-600 shrink-0">AM:</span>
           <select
             value={selectedAm}
             onChange={(e) => setSelectedAm(e.target.value)}
-            className="text-sm font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer w-full"
+            className="text-xs sm:text-sm font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer w-full"
           >
             {amList.map((am) => (
-              <option key={am} value={am}>{am === 'All' ? 'Semua AM' : am}</option>
+              <option key={am} value={am}>{am === 'All' ? 'Semua Area Manager' : am}</option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
-        <div className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-100 focus-within:border-[#00B14F] transition-colors">
-          <Search size={18} className="text-slate-400 shrink-0" />
+      {/* KONTROL PENCARIAN & FILTER LOKAL */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 bg-white p-2.5 sm:p-3 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex-1 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-50 rounded-xl border border-slate-100 focus-within:border-[#00B14F] transition-colors">
+          <Search size={16} className="text-slate-400 shrink-0" />
           <input 
-            type="text" placeholder="Cari Nama Merchant atau Mex ID..." 
+            type="text" placeholder="Cari Nama / MEX ID..." 
             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-transparent border-none focus:outline-none text-sm font-medium text-slate-800 placeholder-slate-400"
+            className="w-full bg-transparent border-none focus:outline-none text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400"
           />
         </div>
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-xl">
-          <Filter size={18} className="text-slate-400 shrink-0" />
-          <select value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} className="text-sm font-bold text-slate-800 bg-transparent outline-none cursor-pointer w-full">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl">
+          <Filter size={16} className="text-slate-400 shrink-0" />
+          <select value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} className="text-xs sm:text-sm font-bold text-slate-800 bg-transparent outline-none cursor-pointer w-full">
             <option value="All">Semua Promo</option>
             <option value="GMS & Local">GMS & Local</option>
             <option value="GMS Only">GMS Only</option>
@@ -183,52 +188,51 @@ export default function MerchantList() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        {/* ⚡ PERBAIKAN: overflow-x-auto memungkinkan tabel di-scroll horizontal tanpa membuat teks penyet */}
+      {/* TABEL MERCHANT (OPTIMASI MOBILE) */}
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto pb-2">
-          {/* ⚡ PERBAIKAN: whitespace-nowrap mengunci agar teks tidak pernah patah ke bawah */}
-          <table className="w-full text-left border-collapse whitespace-nowrap min-w-[800px]">
+          {/* whitespace-nowrap & min-w agar tabel tidak penyet di mobile */}
+          <table className="w-full text-left border-collapse whitespace-nowrap min-w-[750px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 text-[11px] uppercase tracking-wider text-slate-500">
-                <th className="p-4 w-12 text-center font-bold">No</th>
-                <th className="p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mexName')}>
+              <tr className="bg-slate-50 border-b border-slate-100 text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500">
+                <th className="p-3 sm:p-4 w-10 text-center font-bold">No</th>
+                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mexName')}>
                   <div className="flex items-center">Merchant Info {getSortIcon('mexName')}</div>
                 </th>
-                <th className="p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('basketSize')}>
-                  <div className="flex items-center">Basket Size MTD {getSortIcon('basketSize')}</div>
+                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('basketSize')}>
+                  <div className="flex items-center">Sales MTD {getSortIcon('basketSize')}</div>
                 </th>
-                <th className="p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('adsSpent')}>
-                  <div className="flex items-center">Ads Spent MTD {getSortIcon('adsSpent')}</div>
+                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('adsSpent')}>
+                  <div className="flex items-center">Ads MTD {getSortIcon('adsSpent')}</div>
                 </th>
-                <th className="p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mcaAmount')}>
-                  <div className="flex items-center">Nilai MCA (WL) {getSortIcon('mcaAmount')}</div>
+                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mcaAmount')}>
+                  <div className="flex items-center">Nilai MCA {getSortIcon('mcaAmount')}</div>
                 </th>
-                <th className="p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('campaignStatus')}>
-                  <div className="flex items-center">Status Campaign {getSortIcon('campaignStatus')}</div>
+                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('campaignStatus')}>
+                  <div className="flex items-center">Campaign {getSortIcon('campaignStatus')}</div>
                 </th>
               </tr>
             </thead>
-            <tbody className="text-sm divide-y divide-slate-100">
+            <tbody className="text-xs sm:text-sm divide-y divide-slate-100">
               {processedData.length === 0 ? (
-                <tr><td colSpan="6" className="p-8 text-center text-slate-500 font-medium">Tidak ada merchant yang cocok.</td></tr>
+                <tr><td colSpan="6" className="p-6 text-center text-slate-500 font-medium text-xs">Tidak ada data.</td></tr>
               ) : (
                 processedData.map((merchant, index) => (
                   <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                    <td className="p-4 text-center font-bold text-slate-400">{index + 1}</td>
-                    <td className="p-4">
-                      <div className="font-black text-slate-800">{merchant.mexName}</div>
+                    <td className="p-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
+                    <td className="p-3 sm:p-4">
+                      <div className="font-black text-slate-800 text-[13px] sm:text-sm">{merchant.mexName}</div>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="font-mono text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">{merchant.mexId}</span>
-                        {/* ⚡ MENAMPILKAN NAMA SINGKATAN AM */}
-                        <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold">
-                          <UserCircle size={12}/> {merchant.shortAmName}
+                        <span className="font-mono text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{merchant.mexId}</span>
+                        <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">
+                          <UserCircle size={10} className="sm:w-3 sm:h-3"/> {merchant.shortAmName}
                         </span>
                       </div>
                     </td>
-                    <td className="p-4"><div className="font-mono font-bold text-slate-700">{formatRupiah(merchant.basketSize)}</div></td>
-                    <td className="p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00]">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                    <td className="p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F]">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                    <td className="p-4"><span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>{merchant.campaignStatus}</span></td>
+                    <td className="p-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
+                    <td className="p-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                    <td className="p-3 sm:p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                    <td className="p-3 sm:p-4"><span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>{merchant.campaignStatus}</span></td>
                   </tr>
                 ))
               )}
