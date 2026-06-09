@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList, PieChart, Pie, Cell } from 'recharts';
 import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, Activity, PieChart as PieIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-
+import { GlobalFilterContext } from '../App';
+import { useContext } from 'react';
 // ==========================================
 // 1. HELPER FUNCTIONS
 // ==========================================
@@ -46,7 +47,7 @@ const parseCampaign = (val) => {
 // ==========================================
 export default function Dashboard() {
   const { data, isLoading, error } = useSheetData('getDashboard');
-  const [selectedAm, setSelectedAm] = useState('All');
+  const { selectedAm, setSelectedAm } = useContext(GlobalFilterContext);
 
   const amList = useMemo(() => {
     if (!data || data.length === 0) return ['All'];
@@ -355,7 +356,7 @@ export default function Dashboard() {
           </div>
           <div className="h-[350px] w-full flex justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topSales} margin={{ top: 50, right: 0, left: 0, bottom: 20 }} barGap={4}>
+              <BarChart data={charts.topSales} margin={{ top: -10, right: 0, left: 0, bottom: 20 }} barGap={6}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={80} interval={0} padding={{ left: 25, right: 25 }} />
                 <YAxis hide type="number" />
@@ -363,10 +364,10 @@ export default function Dashboard() {
                 <Legend verticalAlign="top" align="center" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
                 
                 <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="salesLM" position="top" angle={-90} offset={20} formatter={formatShorthandNum} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
+                  <LabelList dataKey="salesLM" position="top" angle={0} offset={20} align="center" formatter={formatShorthandNum} style={{ fontSize: 9, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
                 </Bar>
                 <Bar dataKey="sales" name="Bulan Ini" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={16} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="sales" position="top" angle={-90} offset={20} formatter={formatShorthandNum} style={{ fontSize: 10, fill: '#00B14F', fontWeight: '900', outline: 'none' }} />
+                  <LabelList dataKey="sales" position="top" angle={0} offset={20} formatter={formatShorthandNum} style={{ fontSize: 10, fill: '#00B14F', fontWeight: '900', outline: 'none' }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -381,7 +382,7 @@ export default function Dashboard() {
           </div>
           <div className="h-[350px] w-full flex justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.topAds} margin={{ top: 50, right: 0, left: 0, bottom: 20 }} barGap={4}>
+              <BarChart data={charts.topAds} margin={{ top: -10, right: 0, left: 0, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={10} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={80} interval={0} padding={{ left: 25, right: 25 }} />
                 <YAxis hide type="number" />
