@@ -14,11 +14,22 @@ const parseNumber = (val) => {
   return isNaN(parseFloat(cleanStr)) ? 0 : parseFloat(cleanStr);
 };
 
+// ⚡ LOGIKA BARU: Menambahkan deteksi Booster+
 const parseCampaign = (val) => {
-  if (!val || typeof val !== 'string' || val.trim() === '' || val === '0' || val === '-' || val.toLowerCase().includes('no campaign') || val === '#n/a') return 'Zero Campaign';
+  if (!val || typeof val !== 'string' || val.trim() === '' || val === '0' || val === '-' || val.toLowerCase().includes('no campaign') || val === '#n/a') {
+    return 'Zero Campaign';
+  }
+  
   const str = val.toLowerCase();
+  
+  // Prioritas utama: Deteksi Booster+ (Bisa ditulis "booster+" atau "booster +")
+  if (str.includes('booster+') || str.includes('booster +')) {
+    return 'Booster+';
+  }
+
   const hasGMS = str.includes('gms booster') || str.includes('gms cuan');
-  const hasLocal = str.split('|').some(p => !p.trim().includes('gms booster') && !p.trim().includes('gms cuan'));
+  const hasLocal = str.split('|').some(p => !p.trim().includes('gms booster') && !p.trim().includes('gms cuan') && !p.trim().includes('booster+'));
+  
   if (hasGMS && hasLocal) return 'GMS & Local';
   if (hasGMS && !hasLocal) return 'GMS Only';
   if (!hasGMS && hasLocal) return 'Local Only';
@@ -44,14 +55,12 @@ export default function MerchantList() {
   const [campaignFilter, setCampaignFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'basketSize', direction: 'desc' });
 
-  // ⚡ PERBAIKAN BUG 1: Filter ketat agar "Last Update" atau "Tanggal" tidak masuk ke list AM
   const amList = useMemo(() => {
     if (!data || data.length === 0) return ['All'];
     const uniqueAms = new Set();
     data.forEach(row => {
       const amName = row[2];
       const mexName = row[4]; 
-      
       if (
         amName && 
         typeof amName === 'string' &&
@@ -68,7 +77,6 @@ export default function MerchantList() {
     return ['All', ...Array.from(uniqueAms).sort()];
   }, [data]);
 
-  // Parsing Database
   const merchants = useMemo(() => {
     if (!data || data.length === 0) return [];
     const rawList = [];
@@ -123,8 +131,10 @@ export default function MerchantList() {
 
   const getSortIcon = (key) => sortConfig.key !== key ? <ArrowUpDown size={12} className="text-slate-300 ml-1" /> : (sortConfig.direction === 'asc' ? <ChevronUp size={12} className="text-[#00B14F] ml-1" /> : <ChevronDown size={12} className="text-[#00B14F] ml-1" />);
 
+  // ⚡ TAMPILAN BADGE BARU: Booster+ mendapatkan warna ungu eksklusif
   const getCampaignBadge = (status) => {
     switch(status) {
+      case 'Booster+': return 'bg-[#F4F0FF] text-[#7E22CE] border-[#7E22CE]/20'; // Ungu Premium
       case 'GMS & Local': return 'bg-[#E5F7ED] text-[#00B14F] border-[#00B14F]/20';
       case 'GMS Only': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
       case 'Local Only': return 'bg-[#FFF2E5] text-[#FF7A00] border-[#FF7A00]/20';
@@ -136,7 +146,6 @@ export default function MerchantList() {
   if (error || !merchants.length) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-sm">Data kosong/Error: {error}</div>;
 
   return (
-    // ⚡ PERBAIKAN BUG 2: Space & Padding direnggangkan untuk Desktop, tapi dipadatkan (Zoom Out effect) untuk Mobile
     <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0">
       
       {/* HEADER & GLOBAL AM FILTER */}
@@ -180,6 +189,7 @@ export default function MerchantList() {
           <Filter size={16} className="text-slate-400 shrink-0" />
           <select value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)} className="text-xs sm:text-sm font-bold text-slate-800 bg-transparent outline-none cursor-pointer w-full">
             <option value="All">Semua Promo</option>
+            <option value="Booster+">Booster+</option> {/* ⚡ Menambah opsi filter Booster+ */}
             <option value="GMS & Local">GMS & Local</option>
             <option value="GMS Only">GMS Only</option>
             <option value="Local Only">Local Only</option>
@@ -188,27 +198,27 @@ export default function MerchantList() {
         </div>
       </div>
 
-      {/* TABEL MERCHANT (OPTIMASI MOBILE) */}
+      {/* TABEL MERCHANT */}
       <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto pb-2">
-          {/* whitespace-nowrap & min-w agar tabel tidak penyet di mobile */}
-          <table className="w-full text-left border-collapse whitespace-nowrap min-w-[750px]">
+          <table className="w-full text-left border-collapse whitespace-nowrap min-w-max md:min-w-[700px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500">
-                <th className="p-3 sm:p-4 w-10 text-center font-bold">No</th>
-                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mexName')}>
+                <th className="px-2.5 py-3 sm:p-4 w-8 sm:w-12 text-center font-bold">No</th>
+                {/* ⚡ PERBAIKAN: Membatasi lebar kolom Merchant Info secara eksplisit */}
+                <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors w-[160px] sm:w-[220px]" onClick={() => requestSort('mexName')}>
                   <div className="flex items-center">Merchant Info {getSortIcon('mexName')}</div>
                 </th>
-                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('basketSize')}>
+                <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('basketSize')}>
                   <div className="flex items-center">Sales MTD {getSortIcon('basketSize')}</div>
                 </th>
-                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('adsSpent')}>
+                <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('adsSpent')}>
                   <div className="flex items-center">Ads MTD {getSortIcon('adsSpent')}</div>
                 </th>
-                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mcaAmount')}>
+                <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mcaAmount')}>
                   <div className="flex items-center">Nilai MCA {getSortIcon('mcaAmount')}</div>
                 </th>
-                <th className="p-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('campaignStatus')}>
+                <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('campaignStatus')}>
                   <div className="flex items-center">Campaign {getSortIcon('campaignStatus')}</div>
                 </th>
               </tr>
@@ -219,20 +229,32 @@ export default function MerchantList() {
               ) : (
                 processedData.map((merchant, index) => (
                   <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                    <td className="p-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
-                    <td className="p-3 sm:p-4">
-                      <div className="font-black text-slate-800 text-[13px] sm:text-sm">{merchant.mexName}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-mono text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{merchant.mexId}</span>
-                        <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">
+                    <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
+                    
+                    {/* ⚡ PERBAIKAN: Menerapkan max-width dan truncate pada Nama Merchant */}
+                    <td className="px-2.5 py-3 sm:p-4 max-w-[160px] sm:max-w-[220px]">
+                      <div 
+                        className="font-black text-slate-800 text-[13px] sm:text-sm truncate" 
+                        title={merchant.mexName} // Hover untuk melihat nama penuh
+                      >
+                        {merchant.mexName}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 overflow-hidden">
+                        <span className="font-mono text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 truncate shrink-0">{merchant.mexId}</span>
+                        <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold shrink-0">
                           <UserCircle size={10} className="sm:w-3 sm:h-3"/> {merchant.shortAmName}
                         </span>
                       </div>
                     </td>
-                    <td className="p-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
-                    <td className="p-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                    <td className="p-3 sm:p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                    <td className="p-3 sm:p-4"><span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>{merchant.campaignStatus}</span></td>
+                    
+                    <td className="px-2.5 py-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
+                    <td className="px-2.5 py-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                    <td className="px-2.5 py-3 sm:p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                    <td className="px-2.5 py-3 sm:p-4">
+                      <span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>
+                        {merchant.campaignStatus}
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}
