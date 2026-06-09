@@ -1,8 +1,8 @@
-import React, { useMemo, useContext } from 'react';
+import React, { useMemo, useContext, useState } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
 import { GlobalFilterContext } from '../App';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList, PieChart, Pie, Cell } from 'recharts';
-import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, Activity, PieChart as PieIcon, TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
+import { ShoppingCart, Megaphone, Coins, Award, Store, Wallet, Loader2, AlertCircle, Filter, Activity, PieChart as PieIcon, TrendingUp, TrendingDown, Minus, Clock, X, CheckCircle2, ChevronRight } from 'lucide-react';
 
 // ==========================================
 // 1. HELPER FUNCTIONS
@@ -27,18 +27,31 @@ const parseNumber = (val) => {
 };
 
 const parseCampaign = (val) => {
-  if (!val || typeof val !== 'string' || val.trim() === '' || val === '0' || val === '-' || val.toLowerCase().includes('no campaign') || val === '#n/a') {
-    return 'Zero Campaign';
-  }
+  if (!val || typeof val !== 'string' || val.trim() === '' || val === '0' || val === '-' || val.toLowerCase().includes('no campaign') || val === '#n/a') return 'Zero Campaign';
   const str = val.toLowerCase();
   const hasGMS = str.includes('gms booster') || str.includes('gms cuan');
-  const parts = str.split('|').map(s => s.trim()).filter(s => s !== '');
-  const hasLocal = parts.some(p => !p.includes('gms booster') && !p.includes('gms cuan'));
-
+  const hasLocal = str.split('|').some(p => !p.trim().includes('gms booster') && !p.trim().includes('gms cuan'));
   if (hasGMS && hasLocal) return 'GMS & Local';
   if (hasGMS && !hasLocal) return 'GMS Only';
   if (!hasGMS && hasLocal) return 'Local Only';
   return 'Zero Campaign';
+};
+
+const safeParseDate = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return new Date(0);
+  const cleanStr = dateStr.trim().toLowerCase();
+  if (cleanStr === '-' || cleanStr === '0' || cleanStr === '#n/a' || cleanStr === 'n/a' || cleanStr === '') return new Date(0);
+  const parsed = Date.parse(dateStr);
+  return isNaN(parsed) ? new Date(0) : new Date(parsed);
+};
+
+const formatDateIndonesia = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return '-';
+  const cleanStr = dateStr.trim().toLowerCase();
+  if (cleanStr === '-' || cleanStr === '0' || cleanStr === '#n/a' || cleanStr === 'n/a' || cleanStr === '') return '-';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr; 
+  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 
 // ==========================================
@@ -47,28 +60,43 @@ const parseCampaign = (val) => {
 export default function Dashboard() {
   const { data, isLoading, error } = useSheetData('getDashboard');
   const { selectedAm, setSelectedAm } = useContext(GlobalFilterContext);
+  
+  const [isMcaModalOpen, setIsMcaModalOpen] = useState(false);
 
-  // ⚡ ENGINE 1: Deteksi Last Update dan Bulan Berjalan dari Spreadsheet
+  // ⚡ ENGINE 1: Deteksi Last Update langsung tembak ke Sel C2 (data[1][2])
   const { lastUpdateText, reportDate } = useMemo(() => {
     let text = "Data Live";
-    let date = new Date(); // Fallback ke hari ini
-    if (data && data.length > 0) {
-      // Cari di 5 baris pertama saja untuk mempercepat proses
-      for (let i = 0; i < Math.min(5, data.length); i++) {
-        for (let j = 0; j < data[i].length; j++) {
-          const cell = data[i][j];
-          if (typeof cell === 'string' && (cell.toLowerCase().includes('update') || cell.toLowerCase().includes('tanggal'))) {
-            text = cell;
-            // Coba ekstrak tanggal yang ada di dalam teks (Contoh: "Last Update: 09 June 2026")
-            const match = cell.match(/\d{1,2}\s+[a-zA-Z]+\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}/);
-            if (match) {
-              const parsed = Date.parse(match[0]);
-              if (!isNaN(parsed)) date = new Date(parsed);
-            }
-            break;
+    let date = new Date(); 
+
+    // Pengecekan aman: Apakah Baris ke-2 (index 1) dan Kolom C (index 2) tersedia?
+    if (data && data.length > 1 && data[1].length > 2) {
+      const c2Cell = data[1][2]; 
+      
+      if (c2Cell && c2Cell.toString().trim() !== '') {
+        const cellStr = c2Cell.toString().trim();
+        
+        // Ekstraksi jika di dalam C2 ada teks campuran (misal: "Last Update: 12 Mei 2026")
+        const match = cellStr.match(/\d{1,2}\s+[a-zA-Z]+\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}|\d{1,2}-\d{1,2}-\d{4}/);
+        
+        if (match) {
+          const parsed = Date.parse(match[0]);
+          if (!isNaN(parsed)) {
+            date = new Date(parsed);
+            text = `Update: ${formatDateIndonesia(match[0])}`;
+          } else {
+            text = `Update: ${cellStr}`;
+          }
+        } else {
+          // Jika murni hanya tanggal format normal
+          const parsed = Date.parse(cellStr);
+          if (!isNaN(parsed)) {
+            date = new Date(parsed);
+            text = `Update: ${formatDateIndonesia(cellStr)}`;
+          } else {
+            // Jika format tidak dikenali, langsung tampilkan teks mentahnya
+            text = `Update: ${cellStr}`;
           }
         }
-        if (text !== "Data Live") break;
       }
     }
     return { lastUpdateText: text, reportDate: date };
@@ -91,12 +119,16 @@ export default function Dashboard() {
     if (!data || data.length === 0) return null;
 
     let totalBasketSize = 0, totalInvestment = 0, totalAdsSpent = 0;
-    let totalCampaignPoints = 0, activeMerchantCount = 0, totalMcaDisbursed = 0;
+    let totalCampaignPoints = 0, activeMerchantCount = 0;
+    
+    let totalMcaDisbursed = 0;
+    let totalMcaPending = 0;
+    let mcaList = []; 
+
     let health = { grow: 0, stable: 0, drop: 0, total: 0 };
     let campaignStats = { gmsOnly: 0, gmsLocal: 0, localOnly: 0, zero: 0 };
     const merchantRankings = [];
 
-    // Persiapan logika kalender MCA (Mencocokkan dengan Bulan & Tahun Last Update)
     const targetMonth = reportDate.getMonth();
     const targetYear = reportDate.getFullYear();
     const monthNamesEn = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -104,7 +136,6 @@ export default function Dashboard() {
     const numFormat1 = `-${String(targetMonth + 1).padStart(2, '0')}-`;
     const numFormat2 = `/${String(targetMonth + 1).padStart(2, '0')}/`;
 
-    // ⚡ Logika Validasi Bulan MCA
     const isCurrentReportingMonth = (dStr) => {
       if (!dStr || dStr === '-' || dStr === '0') return false;
       const parsed = Date.parse(dStr);
@@ -132,7 +163,7 @@ export default function Dashboard() {
       const pts = parseNumber(row[45]);
       
       const mcaStatus = row[39] ? row[39].toString().toLowerCase().trim() : ''; 
-      const mcaDate = row[40] ? row[40].toString().toLowerCase().trim() : '';   
+      const mcaDate = row[40] ? row[40].toString().trim() : '';   
       const mcaAmount = parseNumber(row[41]);                                  
       const campaignVal = row[44];         
 
@@ -143,12 +174,23 @@ export default function Dashboard() {
 
       if (bs > 0) activeMerchantCount++;
 
-      // ⚡ CALCULATOR MCA DINAMIS
-      if (
-        (mcaStatus.includes('disbursed') || mcaStatus.includes('pending disbursed')) && 
-        isCurrentReportingMonth(mcaDate)
-      ) {
-        totalMcaDisbursed += mcaAmount;
+      const isDisbursed = mcaStatus === 'disbursed';
+      const isPending = mcaStatus.includes('pending');
+
+      if ((isDisbursed || isPending) && isCurrentReportingMonth(mcaDate)) {
+        const mcaDateObj = safeParseDate(mcaDate);
+        
+        if (isDisbursed) totalMcaDisbursed += mcaAmount;
+        if (isPending) totalMcaPending += mcaAmount;
+
+        mcaList.push({
+          id: row[3] || cleanName, 
+          name: mexName.split('-')[0].split(',')[0].trim(),
+          amount: mcaAmount,
+          status: isDisbursed ? 'Disbursed' : 'Pending',
+          dateStr: formatDateIndonesia(mcaDate),
+          dateObj: mcaDateObj
+        });
       }
 
       if (bsLM > 0) {
@@ -179,6 +221,8 @@ export default function Dashboard() {
       });
     });
 
+    mcaList.sort((a, b) => b.dateObj - a.dateObj);
+
     const topSales = [...merchantRankings].sort((a, b) => b.sales - a.sales).slice(0, 10);
     const topAds = [...merchantRankings].sort((a, b) => b.ads - a.ads).slice(0, 10);
 
@@ -200,7 +244,13 @@ export default function Dashboard() {
         adsSpentStr: formatRupiah(totalAdsSpent),
         campaignPointsStr: totalCampaignPoints.toLocaleString('id-ID'),
         activeMerchants: activeMerchantCount.toLocaleString('id-ID'),
-        mcaDisbursedStr: formatRupiah(totalMcaDisbursed)
+        mcaDisbursedTotal: totalMcaDisbursed + totalMcaPending, 
+        mcaDisbursedStr: formatRupiah(totalMcaDisbursed + totalMcaPending),
+      },
+      mcaDetails: {
+        list: mcaList,
+        totalDisbursed: totalMcaDisbursed,
+        totalPending: totalMcaPending
       },
       health,
       donutData,
@@ -229,30 +279,26 @@ export default function Dashboard() {
     );
   }
 
-  const { kpis, health, donutData, charts } = metrics;
+  const { kpis, health, donutData, charts, mcaDetails } = metrics;
 
   const CompareTooltip = ({ active, payload, label, accentColor, useRunrate }) => {
     if (active && payload && payload.length >= 2) {
       const lmValue = payload[0].value;
       const mtdValue = payload[1].value;
       const targetCompareValue = useRunrate ? payload[0].payload.salesRR : mtdValue;
-      
       let growthPct = 0;
-      if (lmValue > 0) {
-        growthPct = ((targetCompareValue - lmValue) / lmValue) * 100;
-      } else if (lmValue === 0 && targetCompareValue > 0) {
-        growthPct = 100;
-      }
+      if (lmValue > 0) growthPct = ((targetCompareValue - lmValue) / lmValue) * 100;
+      else if (lmValue === 0 && targetCompareValue > 0) growthPct = 100;
 
       return (
         <div className="bg-white/95 backdrop-blur-md text-slate-800 p-4 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[240px] outline-none flex flex-col gap-3 z-50">
           <div className="border-b border-slate-100 pb-2">
-            <p className="font-black text-slate-900 text-[13px] truncate">{label}</p>
+            <p className="font-black text-slate-900 text-[13px] truncate text-center">{label}</p>
           </div>
           <div className="flex flex-col gap-2.5">
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-500 font-medium">Bulan Lalu</span>
-              <span className="font-mono font-bold text-slate-400">{formatRupiah(lmValue)}</span>
+              <span className="font-mono font-semibold text-slate-400">{formatRupiah(lmValue)}</span>
             </div>
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-700 font-bold">Bulan Ini (MTD)</span>
@@ -265,19 +311,21 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-              {useRunrate ? 'Tren vs Runrate' : 'Tren vs Bulan Lalu'}
+          <div className="pt-2 border-t border-slate-100 mt-1">
+            <span className="text-slate-400 text-[9px] uppercase tracking-wider font-bold block mb-1.5 text-center">
+              {useRunrate ? 'Tren (Runrate vs LM)' : 'Tren (MTD vs LM)'}
             </span>
-            {growthPct >= 0 ? (
-              <span className="text-[#00B14F] font-bold flex items-center text-xs bg-[#E5F7ED] px-2.5 py-1 rounded-lg">
-                <TrendingUp size={14} className="mr-1"/> +{growthPct.toFixed(1)}%
-              </span>
-            ) : (
-              <span className="text-[#E02424] font-bold flex items-center text-xs bg-red-50 px-2.5 py-1 rounded-lg">
-                <TrendingDown size={14} className="mr-1"/> {growthPct.toFixed(1)}%
-              </span>
-            )}
+            <div className="flex justify-center">
+              {growthPct >= 0 ? (
+                <span className="text-[#00B14F] font-bold inline-flex items-center text-[10px] bg-[#E5F7ED] px-3 py-1.5 rounded-md">
+                  <TrendingUp size={12} className="mr-1.5"/> +{growthPct.toFixed(1)}%
+                </span>
+              ) : (
+                <span className="text-[#E02424] font-bold inline-flex items-center text-[10px] bg-red-50 px-3 py-1.5 rounded-md">
+                  <TrendingDown size={12} className="mr-1.5"/> {growthPct.toFixed(1)}%
+                </span>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -290,13 +338,13 @@ export default function Dashboard() {
       const dt = payload[0].payload;
       return (
         <div className="bg-white/95 backdrop-blur-md text-slate-800 p-3.5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[160px] outline-none">
-          <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
-            <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: dt.color }}></span>
+          <div className="flex items-center justify-center gap-2 mb-2 border-b border-slate-100 pb-2">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: dt.color }}></span>
             <span className="font-bold text-slate-800 text-xs">{dt.name}</span>
           </div>
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-500 font-medium">Total:</span>
-            <span className="font-mono font-bold text-slate-900 text-[13px]">{dt.value} Toko</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{dt.value} Toko</span>
           </div>
         </div>
       );
@@ -305,7 +353,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0">
+    <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0 relative">
       
       {/* --- HEADER --- */}
       <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4">
@@ -315,8 +363,6 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Overview</h1>
-            
-            {/* ⚡ MENAMPILKAN LAST UPDATE SEBAGAI BADGE */}
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
               <p className="text-xs sm:text-sm text-slate-500 font-medium">Ringkasan Performa Merchant</p>
               <span className="hidden sm:inline text-slate-300">•</span>
@@ -344,7 +390,7 @@ export default function Dashboard() {
 
       {/* --- 6 KPI CARDS --- */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 text-center">
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] transition-all cursor-default">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center cursor-default">
           <div className="flex items-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
             <ShoppingCart size={14} className="text-[#00B14F]" />
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Basket Size</span>
@@ -352,7 +398,7 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-base font-black text-slate-900 truncate w-full">{kpis.basketSizeStr}</h3>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] transition-all cursor-default">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center cursor-default">
           <div className="flex items-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
             <Coins size={14} className="text-[#00B14F]" />
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Investment</span>
@@ -360,7 +406,7 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-base font-black text-slate-900 truncate w-full">{kpis.investmentStr}</h3>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#FF7A00] transition-all cursor-default">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center cursor-default">
           <div className="flex items-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
             <Megaphone size={14} className="text-[#FF7A00]" />
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Ads Spent</span>
@@ -368,7 +414,7 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-base font-black text-slate-900 truncate w-full">{kpis.adsSpentStr}</h3>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] transition-all cursor-default">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center cursor-default">
           <div className="flex items-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
             <Store size={14} className="text-[#00B14F]" />
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Active Toko</span>
@@ -376,15 +422,22 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-base font-black text-slate-900">{kpis.activeMerchants}</h3>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] transition-all cursor-default">
+        <button 
+          onClick={() => setIsMcaModalOpen(true)}
+          className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] hover:shadow-md transition-all group relative overflow-hidden text-left"
+        >
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+             <ChevronRight size={16} className="text-[#00B14F]" />
+          </div>
           <div className="flex items-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
-            <Wallet size={14} className="text-[#00B14F]" />
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">MCA Disburse</span>
+            <Wallet size={14} className="text-[#00B14F] group-hover:scale-110 transition-transform" />
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Total MCA</span>
           </div>
           <h3 className="text-sm sm:text-base font-black text-slate-900 truncate w-full">{kpis.mcaDisbursedStr}</h3>
-        </div>
+          <p className="text-[8px] sm:text-[9px] text-slate-400 mt-1 uppercase font-bold tracking-widest bg-slate-50 px-2 py-0.5 rounded">Bulan Berjalan</p>
+        </button>
 
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] transition-all cursor-default">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center cursor-default">
           <div className="flex items-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
             <Award size={14} className="text-[#00B14F]" />
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Camp Points</span>
@@ -393,10 +446,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* --- ROW 1: BAR CHARTS --- */}
+      {/* --- SISA GRAFIK BAWAH --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        
-        {/* CHART 1: SALES */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
           <div className="mb-4 sm:mb-6 w-full text-center border-b border-slate-100 pb-3 sm:pb-4">
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Basket Size</h4>
@@ -410,7 +461,6 @@ export default function Dashboard() {
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip accentColor="#00B14F" useRunrate={true} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                
                 <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
                   <LabelList dataKey="salesLM" position="top" angle={-90} offset={15} formatter={formatShorthandNum} style={{ fontSize: 8, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
                 </Bar>
@@ -422,7 +472,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* CHART 2: ADS */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
           <div className="mb-4 sm:mb-6 w-full text-center border-b border-slate-100 pb-3 sm:pb-4">
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Ads Spender</h4>
@@ -436,7 +485,6 @@ export default function Dashboard() {
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip accentColor="#FF7A00" useRunrate={false} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                
                 <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
                   <LabelList dataKey="adsLM" position="top" angle={-90} offset={15} formatter={formatShorthandNum} style={{ fontSize: 8, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
                 </Bar>
@@ -447,13 +495,9 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-
       </div>
 
-      {/* --- ROW 2: HEALTH & CAMPAIGN --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        
-        {/* HEALTH STATUS */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col">
           <div className="mb-4 sm:mb-6 border-b border-slate-100 pb-3 sm:pb-4 flex flex-col items-center text-center">
             <div className="p-2 sm:p-2.5 bg-[#E5F7ED] rounded-lg sm:rounded-xl mb-2 sm:mb-3"><Activity size={18} className="text-[#00B14F] sm:w-[22px] sm:h-[22px]"/></div>
@@ -494,14 +538,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* CAMPAIGN PIE CHART */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
           <div className="mb-4 sm:mb-6 w-full text-center border-b border-slate-100 pb-3 sm:pb-4 flex flex-col items-center">
             <div className="p-2 sm:p-2.5 bg-[#FFF2E5] rounded-lg sm:rounded-xl mb-2 sm:mb-3"><PieIcon size={18} className="text-[#FF7A00] sm:w-[22px] sm:h-[22px]"/></div>
             <h4 className="text-sm sm:text-base font-black text-slate-900">Campaign Mix</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Distribusi partisipasi promo toko aktif.</p>
           </div>
-          
           <div className="h-[220px] sm:h-[280px] w-full flex justify-center items-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
@@ -527,8 +569,74 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-
       </div>
+
+      {/* ⚡ POPUP MODAL MCA DISBURSEMENT DETAILS */}
+      {isMcaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setIsMcaModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#E5F7ED] rounded-xl"><Wallet size={20} className="text-[#00B14F]" /></div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-lg">Log Pencairan MCA</h3>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5 uppercase tracking-wider">Bulan Berjalan</p>
+                </div>
+              </div>
+              <button onClick={() => setIsMcaModalOpen(false)} className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 p-4 gap-4 bg-white border-b border-slate-100 shrink-0">
+              <div className="bg-[#E5F7ED] p-3 rounded-2xl border border-[#00B14F]/20 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#00B14F]/80 block mb-1">Total Disbursed (Cair)</span>
+                <span className="text-base sm:text-lg font-black text-[#00B14F]">{formatRupiah(mcaDetails.totalDisbursed)}</span>
+              </div>
+              <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80 block mb-1">Total Pending</span>
+                <span className="text-base sm:text-lg font-black text-amber-600">{formatRupiah(mcaDetails.totalPending)}</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50">
+              {mcaDetails.list.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-10 opacity-60">
+                  <Wallet size={40} className="text-slate-400 mb-3" />
+                  <p className="text-sm font-bold text-slate-600">Belum ada data pencairan MCA di bulan ini.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {mcaDetails.list.map((item, i) => (
+                    <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#00B14F]/30 transition-colors">
+                      <div>
+                        <h4 className="font-black text-slate-800 text-sm">{item.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Clock size={10} /> {item.dateStr}
+                          </span>
+                          {item.status === 'Disbursed' ? (
+                            <span className="text-[10px] font-bold bg-[#E5F7ED] text-[#00B14F] px-2 py-0.5 rounded flex items-center gap-1">
+                              <CheckCircle2 size={10} /> Cair
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded flex items-center gap-1">
+                              <Clock size={10} /> Pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="font-mono font-black text-slate-700 text-base sm:text-right bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 self-start sm:self-auto">
+                        {formatRupiah(item.amount)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
