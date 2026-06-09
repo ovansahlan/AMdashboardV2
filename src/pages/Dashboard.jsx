@@ -54,6 +54,27 @@ const formatDateIndonesia = (dateStr) => {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 
+// ⚡ ENGINE BARU: Fungsi Custom Label agar text lurus tegak presisi di tengah Bar
+const renderCustomBarLabel = (props, color, fontSize) => {
+  const { x, y, width, value } = props;
+  if (!value) return null;
+  // x + width / 2 menjamin text ada persis di titik tengah bar
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 6}
+      fill={color}
+      fontSize={fontSize}
+      fontWeight="900"
+      textAnchor="start" 
+      dominantBaseline="central"
+      transform={`rotate(-90, ${x + width / 2}, ${y - 6})`}
+    >
+      {formatShorthandNum(value)}
+    </text>
+  );
+};
+
 // ==========================================
 // 2. MAIN COMPONENT
 // ==========================================
@@ -63,21 +84,14 @@ export default function Dashboard() {
   
   const [isMcaModalOpen, setIsMcaModalOpen] = useState(false);
 
-  // ⚡ ENGINE 1: Deteksi Last Update langsung tembak ke Sel C2 (data[1][2])
   const { lastUpdateText, reportDate } = useMemo(() => {
     let text = "Data Live";
     let date = new Date(); 
-
-    // Pengecekan aman: Apakah Baris ke-2 (index 1) dan Kolom C (index 2) tersedia?
     if (data && data.length > 1 && data[1].length > 2) {
       const c2Cell = data[1][2]; 
-      
       if (c2Cell && c2Cell.toString().trim() !== '') {
         const cellStr = c2Cell.toString().trim();
-        
-        // Ekstraksi jika di dalam C2 ada teks campuran (misal: "Last Update: 12 Mei 2026")
         const match = cellStr.match(/\d{1,2}\s+[a-zA-Z]+\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}|\d{1,2}-\d{1,2}-\d{4}/);
-        
         if (match) {
           const parsed = Date.parse(match[0]);
           if (!isNaN(parsed)) {
@@ -87,13 +101,11 @@ export default function Dashboard() {
             text = `Update: ${cellStr}`;
           }
         } else {
-          // Jika murni hanya tanggal format normal
           const parsed = Date.parse(cellStr);
           if (!isNaN(parsed)) {
             date = new Date(parsed);
             text = `Update: ${formatDateIndonesia(cellStr)}`;
           } else {
-            // Jika format tidak dikenali, langsung tampilkan teks mentahnya
             text = `Update: ${cellStr}`;
           }
         }
@@ -177,15 +189,17 @@ export default function Dashboard() {
       const isDisbursed = mcaStatus === 'disbursed';
       const isPending = mcaStatus.includes('pending');
 
+      let cleanName = mexName.split('-')[0].split(',')[0].trim();
+      if (cleanName.length > 15) cleanName = cleanName.substring(0, 15) + '...';
+
       if ((isDisbursed || isPending) && isCurrentReportingMonth(mcaDate)) {
         const mcaDateObj = safeParseDate(mcaDate);
-        
         if (isDisbursed) totalMcaDisbursed += mcaAmount;
         if (isPending) totalMcaPending += mcaAmount;
 
         mcaList.push({
           id: row[3] || cleanName, 
-          name: mexName.split('-')[0].split(',')[0].trim(),
+          name: cleanName,
           amount: mcaAmount,
           status: isDisbursed ? 'Disbursed' : 'Pending',
           dateStr: formatDateIndonesia(mcaDate),
@@ -206,13 +220,11 @@ export default function Dashboard() {
       else if (campType === 'Local Only') campaignStats.localOnly++;
       else campaignStats.zero++;
 
-      let cleanName = mexName.split('-')[0].split(',')[0].trim();
-      if (cleanName.length > 12) {
-        cleanName = cleanName.substring(0, 12) + '...';
-      }
+      let shortChartName = mexName.split('-')[0].split(',')[0].trim();
+      if (shortChartName.length > 12) shortChartName = shortChartName.substring(0, 12) + '...';
 
       merchantRankings.push({
-        name: cleanName,
+        name: shortChartName,
         sales: bs,
         salesLM: bsLM,
         salesRR: rrBs,
@@ -258,9 +270,6 @@ export default function Dashboard() {
     };
   }, [data, selectedAm, reportDate]);
 
-  // ==========================================
-  // 3. UI RENDERERS
-  // ==========================================
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] bg-slate-50">
@@ -422,18 +431,19 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-base font-black text-slate-900">{kpis.activeMerchants}</h3>
         </div>
 
+        {/* ⚡ KOREKSI 1: Mengubah text-left menjadi text-center agar simetris */}
         <button 
           onClick={() => setIsMcaModalOpen(true)}
-          className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] hover:shadow-md transition-all group relative overflow-hidden text-left"
+          className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] hover:shadow-md transition-all group relative overflow-hidden text-center cursor-pointer"
         >
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
              <ChevronRight size={16} className="text-[#00B14F]" />
           </div>
-          <div className="flex items-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
+          <div className="flex items-center justify-center gap-1.5 text-slate-500 mb-1.5 sm:mb-2">
             <Wallet size={14} className="text-[#00B14F] group-hover:scale-110 transition-transform" />
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Total MCA</span>
           </div>
-          <h3 className="text-sm sm:text-base font-black text-slate-900 truncate w-full">{kpis.mcaDisbursedStr}</h3>
+          <h3 className="text-sm sm:text-base font-black text-slate-900 truncate w-full text-center">{kpis.mcaDisbursedStr}</h3>
           <p className="text-[8px] sm:text-[9px] text-slate-400 mt-1 uppercase font-bold tracking-widest bg-slate-50 px-2 py-0.5 rounded">Bulan Berjalan</p>
         </button>
 
@@ -461,11 +471,13 @@ export default function Dashboard() {
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip accentColor="#00B14F" useRunrate={true} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+                
+                {/* ⚡ KOREKSI 2: Menerapkan renderCustomBarLabel pada Chart Top 10 Sales */}
                 <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="salesLM" position="top" angle={-90} offset={15} formatter={formatShorthandNum} style={{ fontSize: 8, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
+                  <LabelList dataKey="salesLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
                 </Bar>
                 <Bar dataKey="sales" name="Bulan Ini" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="sales" position="top" angle={-90} offset={15} formatter={formatShorthandNum} style={{ fontSize: 9, fill: '#00B14F', fontWeight: '900', outline: 'none' }} />
+                  <LabelList dataKey="sales" content={(props) => renderCustomBarLabel(props, '#00B14F', 9)} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -485,11 +497,13 @@ export default function Dashboard() {
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip accentColor="#FF7A00" useRunrate={false} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+                
+                {/* ⚡ KOREKSI 2: Menerapkan renderCustomBarLabel pada Chart Top 10 Ads */}
                 <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="adsLM" position="top" angle={-90} offset={15} formatter={formatShorthandNum} style={{ fontSize: 8, fill: '#6B7280', fontWeight: 'bold', outline: 'none' }} />
+                  <LabelList dataKey="adsLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
                 </Bar>
                 <Bar dataKey="ads" name="Bulan Ini" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
-                  <LabelList dataKey="ads" position="top" angle={-90} offset={15} formatter={formatShorthandNum} style={{ fontSize: 9, fill: '#FF7A00', fontWeight: '900', outline: 'none' }} />
+                  <LabelList dataKey="ads" content={(props) => renderCustomBarLabel(props, '#FF7A00', 9)} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -571,7 +585,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ⚡ POPUP MODAL MCA DISBURSEMENT DETAILS */}
+      {/* POPUP MODAL MCA DISBURSEMENT DETAILS */}
       {isMcaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn" onClick={() => setIsMcaModalOpen(false)}>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
