@@ -1,23 +1,25 @@
 import React, { useMemo, useState, useContext } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
-import { GlobalFilterContext } from '../App'; // ⚡ Sinkronisasi Filter AM Global
+import { GlobalFilterContext } from '../App';
 import { Loader2, AlertCircle, Search, Filter, Calendar, CheckCircle2, XCircle, ArrowUpDown, ChevronUp, ChevronDown, UserCircle, Megaphone } from 'lucide-react';
 
 // ==========================================
 // 1. HELPER FUNCTIONS
 // ==========================================
-// Fungsi mengubah string tanggal menjadi objek Date agar pengurutan (sorting) 100% akurat
 const safeParseDate = (dateStr) => {
-  if (!dateStr || dateStr === '-' || dateStr === '0' || dateStr.trim() === '') return new Date(0);
+  if (!dateStr || typeof dateStr !== 'string') return new Date(0);
+  const cleanStr = dateStr.trim().toLowerCase();
+  if (cleanStr === '-' || cleanStr === '0' || cleanStr === '#n/a' || cleanStr === 'n/a' || cleanStr === '') return new Date(0);
   const parsed = Date.parse(dateStr);
   return isNaN(parsed) ? new Date(0) : new Date(parsed);
 };
 
-// Format tampilan tanggal Indonesia yang rapi (Contoh: 9 Juni 2026)
 const formatDateIndonesia = (dateStr) => {
-  if (!dateStr || dateStr === '-' || dateStr === '0' || dateStr.trim() === '') return '-';
+  if (!dateStr || typeof dateStr !== 'string') return '-';
+  const cleanStr = dateStr.trim().toLowerCase();
+  if (cleanStr === '-' || cleanStr === '0' || cleanStr === '#n/a' || cleanStr === 'n/a' || cleanStr === '') return '-';
   const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return dateStr; // Jika gagal parsing, tampilkan teks aslinya
+  if (isNaN(date.getTime())) return dateStr; 
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 
@@ -31,6 +33,12 @@ const getShortAmName = (fullName) => {
   return fullName.split(' ')[0];
 };
 
+const isValidValue = (val) => {
+  if (!val || typeof val !== 'string') return false;
+  const clean = val.trim().toLowerCase();
+  return clean !== '' && clean !== '-' && clean !== '0' && clean !== '#n/a' && clean !== 'n/a';
+};
+
 // ==========================================
 // 2. MAIN COMPONENT
 // ==========================================
@@ -38,26 +46,23 @@ export default function GMSTracker() {
   const { data, isLoading, error } = useSheetData('getDashboard');
   const { selectedAm, setSelectedAm } = useContext(GlobalFilterContext);
 
-  // State Kontrol Lokal
-  const [activeTab, setActiveTab] = useState('opt-in'); // 'opt-in' atau 'opt-out'
+  const [activeTab, setActiveTab] = useState('opt-in'); 
   const [searchTerm, setSearchTerm] = useState('');
   const [campaignTypeFilter, setCampaignTypeFilter] = useState('All');
 
-  // 1. Ekstrak Daftar AM untuk Dropdown
   const amList = useMemo(() => {
     if (!data || data.length === 0) return ['All'];
     const uniqueAms = new Set();
     data.forEach(row => {
       const amName = row[2];
       const mexName = row[4];
-      if (amName && amName !== 'AM Name' && amName.trim() !== '' && !amName.toLowerCase().includes('update') && mexName && mexName !== 'Mex Name') {
+      if (amName && amName !== 'AM Name' && isValidValue(amName) && !amName.toLowerCase().includes('update') && mexName && mexName !== 'Mex Name') {
         uniqueAms.add(amName.trim());
       }
     });
     return ['All', ...Array.from(uniqueAms).sort()];
   }, [data]);
 
-  // 2. Pemrosesan Data Logika Opt-In & Opt-Out
   const lists = useMemo(() => {
     if (!data || data.length === 0) return { optInList: [], optOutList: [] };
 
@@ -66,24 +71,24 @@ export default function GMSTracker() {
 
     data.forEach((row, index) => {
       const mexName = row[4];
-      if (!mexName || mexName === 'Mex Name' || mexName === '#N/A' || mexName.toString().toLowerCase().includes('update')) return;
+      if (!mexName || mexName === 'Mex Name' || !isValidValue(mexName) || mexName.toString().toLowerCase().includes('update')) return;
 
       const rawAmName = row[2] ? row[2].toString().trim() : 'Unassigned';
       const shortAmName = getShortAmName(rawAmName);
-      const mexId = row[3] && row[3] !== '' ? row[3].toString().trim() : `MEX-${1000 + index}`;
-      const campaignRaw = row[44] ? row[44].toString().trim() : '';
-
-      // ⚡ SILAKAN SESUAIKAN INDEKS KOLOM DI BAWAH INI JIKA BERBEDA DI SHEET ANDA
-      const optInDateRaw = row[46] ? row[46].toString().trim() : '';   // Contoh: Kolom AU (Index 46) untuk tanggal Opt-In
-      const optOutDateRaw = row[47] ? row[47].toString().trim() : ''; // Contoh: Kolom AV (Index 47) untuk tanggal Opt-Out
-      const optOutCampRaw = row[48] ? row[48].toString().trim() : ''; // Contoh: Kolom AW (Index 48) untuk nama campaign yang di-opt-out
+      const mexId = row[3] && isValidValue(row[3]) ? row[3].toString().trim() : `MEX-${1000 + index}`;
+      
+      // ⚡ MAPPING BARU SESUAI INSTRUKSI ANDA
+      const optInPackageRaw = row[47] ? row[47].toString().trim() : ''; // Kolom AV (Index 47)
+      const optInDateRaw    = row[48] ? row[48].toString().trim() : ''; // Kolom AW (Index 48)
+      const optOutCampRaw   = row[52] ? row[52].toString().trim() : ''; // Kolom BA (Index 52)
+      const optOutDateRaw   = row[53] ? row[53].toString().trim() : ''; // Kolom BB (Index 53)
 
       let cleanMexName = mexName.split('-')[0].split(',')[0].trim();
 
-      // Deteksi Jenis GMS dari data aktif (kolom 44)
+      // Deteksi Tipe GMS (Hanya mengecek kolom AV - Opt In Package)
       let gmsType = 'Other';
-      if (campaignRaw.toLowerCase().includes('booster')) gmsType = 'GMS Booster';
-      else if (campaignRaw.toLowerCase().includes('cuan')) gmsType = 'GMS Cuan';
+      if (optInPackageRaw.toLowerCase().includes('booster')) gmsType = 'GMS Booster';
+      else if (optInPackageRaw.toLowerCase().includes('cuan')) gmsType = 'GMS Cuan';
 
       const baseItem = {
         id: index,
@@ -93,53 +98,48 @@ export default function GMSTracker() {
         shortAmName
       };
 
-      // Logika Pemisahan Data masuk ke list Opt-In atau Opt-Out
-      if (optOutDateRaw && optOutDateRaw !== '-' && optOutDateRaw !== '0') {
-        // Masuk ke List Opt-Out
+      const hasOptOutDate = isValidValue(optOutDateRaw);
+      const hasOptInPackage = isValidValue(optInPackageRaw);
+
+      if (hasOptOutDate) {
+        // Jika kolom BB ada isinya, masukkan ke riwayat Opt-Out
         optOutList.push({
           ...baseItem,
           optOutDate: optOutDateRaw,
           optOutDateObj: safeParseDate(optOutDateRaw),
-          optOutCampaign: optOutCampRaw || (campaignRaw !== '-' ? campaignRaw : 'GMS Program')
+          optOutCampaign: isValidValue(optOutCampRaw) ? optOutCampRaw : 'GMS Program'
         });
-      } else if (campaignRaw && campaignRaw !== '-' && campaignRaw !== '0' && campaignRaw.toLowerCase().includes('gms')) {
-        // Masuk ke List Active Opt-In
+      } else if (hasOptInPackage) {
+        // Jika BB kosong tapi kolom AV (Package) ada isinya, masukkan ke Active Opt-In
         optInList.push({
           ...baseItem,
-          gmsType,
-          optInDate: optInDateRaw || 'No Date',
+          gmsType: gmsType !== 'Other' ? gmsType : optInPackageRaw, // Tampilkan nama asli jika bukan booster/cuan
+          optInDate: isValidValue(optInDateRaw) ? optInDateRaw : 'Tidak Ada Tanggal',
           optInDateObj: safeParseDate(optInDateRaw)
         });
       }
     });
 
-    // ⚡ LOGIKA PATEN: Sortir berdasarkan tanggal terbaru (Newest First)
+    // Sortir berdasarkan tanggal terbaru (Newest First)
     optInList.sort((a, b) => b.optInDateObj - a.optInDateObj);
     optOutList.sort((a, b) => b.optOutDateObj - a.optOutDateObj);
 
     return { optInList, optOutList };
   }, [data]);
 
-  // 3. Filter Data Berdasarkan Input Pengguna
   const processedData = useMemo(() => {
     let targetedList = activeTab === 'opt-in' ? [...lists.optInList] : [...lists.optOutList];
 
-    // Filter AM Global
     if (selectedAm !== 'All') {
       targetedList = targetedList.filter(m => m.amName === selectedAm);
     }
-
-    // Filter Pencarian Nama / MEX ID
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       targetedList = targetedList.filter(m => m.mexName.toLowerCase().includes(lower) || m.mexId.toLowerCase().includes(lower));
     }
-
-    // Filter Tipe Campaign Khusus Tab Opt-In
     if (activeTab === 'opt-in' && campaignTypeFilter !== 'All') {
       targetedList = targetedList.filter(m => m.gmsType === campaignTypeFilter);
     }
-
     return targetedList;
   }, [lists, activeTab, searchTerm, selectedAm, campaignTypeFilter]);
 
@@ -149,7 +149,7 @@ export default function GMSTracker() {
   return (
     <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0">
       
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0">
@@ -161,7 +161,6 @@ export default function GMSTracker() {
           </div>
         </div>
         
-        {/* GLOBAL AM FILTER */}
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl w-full sm:w-auto">
           <Filter size={16} className="text-[#00B14F] shrink-0" />
           <span className="text-xs sm:text-sm font-semibold text-slate-600 shrink-0">AM:</span>
@@ -171,8 +170,8 @@ export default function GMSTracker() {
         </div>
       </div>
 
-      {/* --- TAB SWITCHER (SIMETRIS) --- */}
-      <div className="grid grid-cols-2 p-1 bg-slate-200/60 rounded-xl sm:rounded-2xl max-w-md">
+      {/* TAB SWITCHER */}
+      <div className="grid grid-cols-2 p-1 bg-slate-200/60 rounded-xl sm:rounded-2xl max-w-md mx-2 sm:mx-0">
         <button 
           onClick={() => { setActiveTab('opt-in'); setSearchTerm(''); }}
           className={`py-2 text-xs sm:text-sm font-black rounded-lg sm:rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'opt-in' ? 'bg-white text-[#00B14F] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
@@ -187,7 +186,7 @@ export default function GMSTracker() {
         </button>
       </div>
 
-      {/* --- INPUT FILTER & PENCARIAN (COMPACT ZOOM OUT) --- */}
+      {/* FILTER LOKAL */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 bg-white p-2.5 sm:p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 focus-within:border-[#00B14F] transition-colors">
           <Search size={16} className="text-slate-400 shrink-0" />
@@ -199,7 +198,6 @@ export default function GMSTracker() {
           />
         </div>
         
-        {/* Tipe GMS Filter hanya relevan di Tab Opt-In */}
         {activeTab === 'opt-in' && (
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl">
             <Filter size={16} className="text-slate-400 shrink-0" />
@@ -212,7 +210,7 @@ export default function GMSTracker() {
         )}
       </div>
 
-      {/* --- DATA TABLE CONTAINER --- */}
+      {/* DATA TABLE */}
       <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto pb-2">
           <table className="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
@@ -253,15 +251,15 @@ export default function GMSTracker() {
                       </div>
                     </td>
                     
-                    {/* TAB OPT-IN VIEW */}
                     {activeTab === 'opt-in' && (
                       <>
                         <td className="p-3 sm:p-4">
-                          {/* ⚡ PERBAIKAN WARNA STRICT: Booster (Hijau Grab), Cuan (Oranye Promo) */}
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${
                             item.gmsType === 'GMS Booster' 
                               ? 'bg-[#E5F7ED] text-[#00B14F] border-[#00B14F]/20' 
-                              : 'bg-[#FFF2E5] text-[#FF7A00] border-[#FF7A00]/20'
+                              : item.gmsType === 'GMS Cuan'
+                              ? 'bg-[#FFF2E5] text-[#FF7A00] border-[#FF7A00]/20'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
                           }`}>
                             {item.gmsType}
                           </span>
@@ -275,11 +273,9 @@ export default function GMSTracker() {
                       </>
                     )}
 
-                    {/* TAB OPT-OUT VIEW */}
                     {activeTab === 'opt-out' && (
                       <>
                         <td className="p-3 sm:p-4">
-                          {/* Keterangan mereka keluar dari campaign apa */}
                           <div className="text-slate-700 font-bold text-xs max-w-xs truncate" title={item.optOutCampaign}>
                             ❌ {item.optOutCampaign}
                           </div>
