@@ -89,12 +89,13 @@ export default function MerchantList() {
       rawList.push({
         id: index,
         mexId: mexId.toString().trim(),
-        mexName: mexName.split('-')[0].split(',')[0].trim(), // Ambil nama utuh sebelum koma/strip pertama
+        mexName: mexName.split('-')[0].split(',')[0].trim(),
         amName: rawAmName,
         shortAmName: shortAmName, 
         basketSize: parseNumber(row[19]),
         adsSpent: parseNumber(row[31]),
-        mcaAmount: parseNumber(row[41]),
+        // ⚡ PERBAIKAN: Mengambil Limit MCA dari Kolom AL (Index 37)
+        mcaAmount: parseNumber(row[37]), 
         campaignStatus: parseCampaign(row[44])
       });
     });
@@ -195,12 +196,10 @@ export default function MerchantList() {
 
       <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto pb-2">
-          {/* Lebar tabel kita sesuaikan agar lebih leluasa */}
           <table className="w-full text-left border-collapse whitespace-nowrap min-w-max md:min-w-[850px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500">
                 <th className="px-2.5 py-3 sm:p-4 w-8 sm:w-12 text-center font-bold">No</th>
-                {/* ⚡ PERBAIKAN: Kolom ini diperlebar sangat drastis (hingga 400px di Desktop, 240px di HP) */}
                 <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors w-[240px] sm:w-[320px] lg:w-[400px]" onClick={() => requestSort('mexName')}>
                   <div className="flex items-center">Merchant Info {getSortIcon('mexName')}</div>
                 </th>
@@ -210,8 +209,9 @@ export default function MerchantList() {
                 <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('adsSpent')}>
                   <div className="flex items-center">Ads MTD {getSortIcon('adsSpent')}</div>
                 </th>
+                {/* ⚡ PERBAIKAN: Judul kolom diubah menjadi Limit MCA */}
                 <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mcaAmount')}>
-                  <div className="flex items-center">Nilai MCA {getSortIcon('mcaAmount')}</div>
+                  <div className="flex items-center">Limit MCA {getSortIcon('mcaAmount')}</div>
                 </th>
                 <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('campaignStatus')}>
                   <div className="flex items-center">Campaign {getSortIcon('campaignStatus')}</div>
@@ -226,7 +226,6 @@ export default function MerchantList() {
                   <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                     <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
                     
-                    {/* ⚡ PERBAIKAN: Max-width mengikuti lebar header agar nama panjang tidak cepat terpotong */}
                     <td className="px-2.5 py-3 sm:p-4 max-w-[240px] sm:max-w-[320px] lg:max-w-[400px]">
                       <div 
                         className="font-black text-slate-800 text-[13px] sm:text-sm truncate" 
@@ -244,7 +243,16 @@ export default function MerchantList() {
                     
                     <td className="px-2.5 py-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
                     <td className="px-2.5 py-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                    <td className="px-2.5 py-3 sm:p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                    
+                    {/* ⚡ MENAMPILKAN LIMIT TERSEDIA DENGAN WARNA KHAS GRAB */}
+                    <td className="px-2.5 py-3 sm:p-4">
+                      {merchant.mcaAmount > 0 ? (
+                        <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div>
+                      ) : (
+                        <div className="font-mono font-medium text-slate-300">-</div>
+                      )}
+                    </td>
+
                     <td className="px-2.5 py-3 sm:p-4">
                       <span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>
                         {merchant.campaignStatus}

@@ -7,7 +7,7 @@ import Dashboard from './pages/Dashboard';
 import MerchantList from './pages/MerchantList';
 import MerchantDetail from './pages/MerchantDetail';
 import GMSTracker from './pages/GMSTracker';
-
+import AdsTracker from './pages/AdsTracker';
 export const TimeMachineContext = createContext();
 export const GlobalFilterContext = createContext();
 
@@ -18,6 +18,7 @@ const SidebarContent = ({ onClose }) => {
     { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
     { path: '/merchant', icon: <Users size={20} />, label: 'Merchant List' },
     { path: '/gms', icon: <Megaphone size={20} />, label: 'Campaign Tracker' },
+    { path: '/ads', icon: <Target size={20} />, label: 'Ads Tracker' },
     { path: '/okr', icon: <Target size={20} />, label: 'OKR Target' },
   ];
 
@@ -121,6 +122,7 @@ const AppLayout = () => {
               <Route path="/merchant/:id" element={<MerchantDetail />} />
               <Route path="/okr" element={<OKRTracker />} />
               <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="/ads" element={<AdsTracker />} />
             </Routes>
           </div>
         </main>
