@@ -77,15 +77,13 @@ export default function GMSTracker() {
       const shortAmName = getShortAmName(rawAmName);
       const mexId = row[3] && isValidValue(row[3]) ? row[3].toString().trim() : `MEX-${1000 + index}`;
       
-      // ⚡ MAPPING BARU SESUAI INSTRUKSI ANDA
-      const optInPackageRaw = row[47] ? row[47].toString().trim() : ''; // Kolom AV (Index 47)
-      const optInDateRaw    = row[48] ? row[48].toString().trim() : ''; // Kolom AW (Index 48)
-      const optOutCampRaw   = row[52] ? row[52].toString().trim() : ''; // Kolom BA (Index 52)
-      const optOutDateRaw   = row[53] ? row[53].toString().trim() : ''; // Kolom BB (Index 53)
+      const optInPackageRaw = row[47] ? row[47].toString().trim() : ''; 
+      const optInDateRaw    = row[48] ? row[48].toString().trim() : ''; 
+      const optOutCampRaw   = row[52] ? row[52].toString().trim() : ''; 
+      const optOutDateRaw   = row[53] ? row[53].toString().trim() : ''; 
 
       let cleanMexName = mexName.split('-')[0].split(',')[0].trim();
 
-      // Deteksi Tipe GMS (Hanya mengecek kolom AV - Opt In Package)
       let gmsType = 'Other';
       if (optInPackageRaw.toLowerCase().includes('booster')) gmsType = 'GMS Booster';
       else if (optInPackageRaw.toLowerCase().includes('cuan')) gmsType = 'GMS Cuan';
@@ -102,7 +100,6 @@ export default function GMSTracker() {
       const hasOptInPackage = isValidValue(optInPackageRaw);
 
       if (hasOptOutDate) {
-        // Jika kolom BB ada isinya, masukkan ke riwayat Opt-Out
         optOutList.push({
           ...baseItem,
           optOutDate: optOutDateRaw,
@@ -110,17 +107,15 @@ export default function GMSTracker() {
           optOutCampaign: isValidValue(optOutCampRaw) ? optOutCampRaw : 'GMS Program'
         });
       } else if (hasOptInPackage) {
-        // Jika BB kosong tapi kolom AV (Package) ada isinya, masukkan ke Active Opt-In
         optInList.push({
           ...baseItem,
-          gmsType: gmsType !== 'Other' ? gmsType : optInPackageRaw, // Tampilkan nama asli jika bukan booster/cuan
+          gmsType: gmsType !== 'Other' ? gmsType : optInPackageRaw, 
           optInDate: isValidValue(optInDateRaw) ? optInDateRaw : 'Tidak Ada Tanggal',
           optInDateObj: safeParseDate(optInDateRaw)
         });
       }
     });
 
-    // Sortir berdasarkan tanggal terbaru (Newest First)
     optInList.sort((a, b) => b.optInDateObj - a.optInDateObj);
     optOutList.sort((a, b) => b.optOutDateObj - a.optOutDateObj);
 
@@ -130,9 +125,7 @@ export default function GMSTracker() {
   const processedData = useMemo(() => {
     let targetedList = activeTab === 'opt-in' ? [...lists.optInList] : [...lists.optOutList];
 
-    if (selectedAm !== 'All') {
-      targetedList = targetedList.filter(m => m.amName === selectedAm);
-    }
+    if (selectedAm !== 'All') targetedList = targetedList.filter(m => m.amName === selectedAm);
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       targetedList = targetedList.filter(m => m.mexName.toLowerCase().includes(lower) || m.mexId.toLowerCase().includes(lower));
@@ -210,24 +203,26 @@ export default function GMSTracker() {
         )}
       </div>
 
-      {/* DATA TABLE */}
+      {/* DATA TABLE - DIPADATKAN UNTUK MOBILE */}
       <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto pb-2">
-          <table className="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
+          {/* ⚡ PERBAIKAN: Mengganti min-w-[700px] menjadi min-w-max w-full agar baris rapat di Mobile */}
+          <table className="w-full text-left border-collapse whitespace-nowrap min-w-max md:min-w-[700px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500 font-black">
-                <th className="p-3 sm:p-4 w-12 text-center">No</th>
-                <th className="p-3 sm:p-4">Merchant Info</th>
-                <th className="p-3 sm:p-4">Area Manager</th>
+                {/* ⚡ Mengurangi padding horizontal (px-2.5) khusus di mobile agar kolom berdekatan */}
+                <th className="px-2.5 py-3 sm:p-4 w-8 sm:w-12 text-center">No</th>
+                <th className="px-2.5 py-3 sm:p-4">Merchant Info</th>
+                <th className="px-2.5 py-3 sm:p-4">Area Manager</th>
                 {activeTab === 'opt-in' ? (
                   <>
-                    <th className="p-3 sm:p-4">Program GMS</th>
-                    <th className="p-3 sm:p-4">Tanggal Gabung</th>
+                    <th className="px-2.5 py-3 sm:p-4">Program GMS</th>
+                    <th className="px-2.5 py-3 sm:p-4">Tanggal Gabung</th>
                   </>
                 ) : (
                   <>
-                    <th className="p-3 sm:p-4">Alumni Program</th>
-                    <th className="p-3 sm:p-4">Tanggal Keluar (Opt-Out)</th>
+                    <th className="px-2.5 py-3 sm:p-4">Alumni Program</th>
+                    <th className="px-2.5 py-3 sm:p-4">Tanggal Keluar (Opt-Out)</th>
                   </>
                 )}
               </tr>
@@ -239,21 +234,22 @@ export default function GMSTracker() {
               ) : (
                 processedData.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
-                    <td className="p-3 sm:p-4">
+                    <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
+                    <td className="px-2.5 py-3 sm:p-4">
                       <div className="font-black text-slate-800 text-[13px] sm:text-sm">{item.mexName}</div>
                       <div className="font-mono text-[9px] sm:text-[10px] text-slate-400 mt-0.5">{item.mexId}</div>
                     </td>
-                    <td className="p-3 sm:p-4">
+                    <td className="px-2.5 py-3 sm:p-4">
                       <div className="flex items-center gap-1.5 text-slate-700 font-bold">
                         <UserCircle size={14} className="text-slate-400" />
                         <span>{item.shortAmName}</span>
                       </div>
                     </td>
                     
+                    {/* TAB OPT-IN VIEW */}
                     {activeTab === 'opt-in' && (
                       <>
-                        <td className="p-3 sm:p-4">
+                        <td className="px-2.5 py-3 sm:p-4">
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${
                             item.gmsType === 'GMS Booster' 
                               ? 'bg-[#E5F7ED] text-[#00B14F] border-[#00B14F]/20' 
@@ -264,7 +260,7 @@ export default function GMSTracker() {
                             {item.gmsType}
                           </span>
                         </td>
-                        <td className="p-3 sm:p-4 text-slate-600 font-semibold">
+                        <td className="px-2.5 py-3 sm:p-4 text-slate-600 font-semibold">
                           <div className="flex items-center gap-1.5">
                             <Calendar size={13} className="text-slate-400" />
                             <span>{formatDateIndonesia(item.optInDate)}</span>
@@ -273,14 +269,15 @@ export default function GMSTracker() {
                       </>
                     )}
 
+                    {/* TAB OPT-OUT VIEW */}
                     {activeTab === 'opt-out' && (
                       <>
-                        <td className="p-3 sm:p-4">
+                        <td className="px-2.5 py-3 sm:p-4">
                           <div className="text-slate-700 font-bold text-xs max-w-xs truncate" title={item.optOutCampaign}>
                             ❌ {item.optOutCampaign}
                           </div>
                         </td>
-                        <td className="p-3 sm:p-4 text-red-600 font-bold">
+                        <td className="px-2.5 py-3 sm:p-4 text-red-600 font-bold">
                           <div className="flex items-center gap-1.5">
                             <Calendar size={13} className="text-red-400" />
                             <span>{formatDateIndonesia(item.optOutDate)}</span>
