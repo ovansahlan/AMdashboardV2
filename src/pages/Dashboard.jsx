@@ -1,4 +1,5 @@
 import React, { useMemo, useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // ⚡ IMPORT NAVIGATE
 import { useSheetData } from '../hooks/useSheetData';
 import { GlobalFilterContext } from '../App';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList, PieChart, Pie, Cell } from 'recharts';
@@ -54,11 +55,9 @@ const formatDateIndonesia = (dateStr) => {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 
-// ⚡ ENGINE BARU: Fungsi Custom Label agar text lurus tegak presisi di tengah Bar
 const renderCustomBarLabel = (props, color, fontSize) => {
   const { x, y, width, value } = props;
   if (!value) return null;
-  // x + width / 2 menjamin text ada persis di titik tengah bar
   return (
     <text
       x={x + width / 2}
@@ -69,6 +68,7 @@ const renderCustomBarLabel = (props, color, fontSize) => {
       textAnchor="start" 
       dominantBaseline="central"
       transform={`rotate(-90, ${x + width / 2}, ${y - 6})`}
+      style={{ pointerEvents: 'none' }} // Agar klik tembus ke bar
     >
       {formatShorthandNum(value)}
     </text>
@@ -81,8 +81,16 @@ const renderCustomBarLabel = (props, color, fontSize) => {
 export default function Dashboard() {
   const { data, isLoading, error } = useSheetData('getDashboard');
   const { selectedAm, setSelectedAm } = useContext(GlobalFilterContext);
+  const navigate = useNavigate(); // ⚡ MENGAKTIFKAN NAVIGATOR
   
   const [isMcaModalOpen, setIsMcaModalOpen] = useState(false);
+
+  // Fungsi saat batang grafik diklik
+  const handleChartClick = (dataPayload) => {
+    if (dataPayload && dataPayload.mexId) {
+      navigate(`/merchant/${dataPayload.mexId}`);
+    }
+  };
 
   const { lastUpdateText, reportDate } = useMemo(() => {
     let text = "Data Live";
@@ -159,7 +167,7 @@ export default function Dashboard() {
       return lower.includes(monthNamesEn[targetMonth]) || lower.includes(monthNamesId[targetMonth]) || lower.includes(numFormat1) || lower.includes(numFormat2);
     };
 
-    data.forEach((row) => {
+    data.forEach((row, index) => {
       const mexName = row[4];
       const amName = row[2] ? row[2].toString().trim() : '';
       
@@ -174,6 +182,7 @@ export default function Dashboard() {
       const adsLM = parseNumber(row[30]);
       const pts = parseNumber(row[45]);
       
+      const mexId = row[3] && row[3] !== '' ? row[3].toString().trim() : `MEX-${1000 + index}`;
       const mcaStatus = row[39] ? row[39].toString().toLowerCase().trim() : ''; 
       const mcaDate = row[40] ? row[40].toString().trim() : '';   
       const mcaAmount = parseNumber(row[41]);                                  
@@ -198,7 +207,7 @@ export default function Dashboard() {
         if (isPending) totalMcaPending += mcaAmount;
 
         mcaList.push({
-          id: row[3] || cleanName, 
+          id: mexId, 
           name: cleanName,
           amount: mcaAmount,
           status: isDisbursed ? 'Disbursed' : 'Pending',
@@ -223,7 +232,9 @@ export default function Dashboard() {
       let shortChartName = mexName.split('-')[0].split(',')[0].trim();
       if (shortChartName.length > 12) shortChartName = shortChartName.substring(0, 12) + '...';
 
+      // ⚡ MASUKKAN MEX ID AGAR CHART BISA REDIRECT
       merchantRankings.push({
+        mexId: mexId,
         name: shortChartName,
         sales: bs,
         salesLM: bsLM,
@@ -431,7 +442,6 @@ export default function Dashboard() {
           <h3 className="text-sm sm:text-base font-black text-slate-900">{kpis.activeMerchants}</h3>
         </div>
 
-        {/* ⚡ KOREKSI 1: Mengubah text-left menjadi text-center agar simetris */}
         <button 
           onClick={() => setIsMcaModalOpen(true)}
           className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] hover:shadow-md transition-all group relative overflow-hidden text-center cursor-pointer"
@@ -458,12 +468,15 @@ export default function Dashboard() {
 
       {/* --- SISA GRAFIK BAWAH --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        
+        {/* CHART SALES */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
           <div className="mb-4 sm:mb-6 w-full text-center border-b border-slate-100 pb-3 sm:pb-4">
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Basket Size</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Bulan Lalu vs Bulan Ini</p>
           </div>
-          <div className="h-[250px] sm:h-[350px] w-full flex justify-center">
+          {/* ⚡ PERBAIKAN: [&_.recharts-wrapper]:outline-none menghapus border biru jelek saat chart diklik */}
+          <div className="h-[250px] sm:h-[350px] w-full flex justify-center [&_.recharts-wrapper]:outline-none focus:outline-none">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.topSales} margin={{ top: 30, right: 0, left: 0, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -472,11 +485,11 @@ export default function Dashboard() {
                 <Tooltip content={<CompareTooltip accentColor="#00B14F" useRunrate={true} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                 
-                {/* ⚡ KOREKSI 2: Menerapkan renderCustomBarLabel pada Chart Top 10 Sales */}
-                <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
+                {/* ⚡ PERBAIKAN: Menambahkan onClick dan merubah cursor menjadi pointer */}
+                <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} onClick={handleChartClick} style={{ outline: 'none', cursor: 'pointer' }}>
                   <LabelList dataKey="salesLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
                 </Bar>
-                <Bar dataKey="sales" name="Bulan Ini" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
+                <Bar dataKey="sales" name="Bulan Ini" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} onClick={handleChartClick} style={{ outline: 'none', cursor: 'pointer' }}>
                   <LabelList dataKey="sales" content={(props) => renderCustomBarLabel(props, '#00B14F', 9)} />
                 </Bar>
               </BarChart>
@@ -484,12 +497,13 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* CHART ADS */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center">
           <div className="mb-4 sm:mb-6 w-full text-center border-b border-slate-100 pb-3 sm:pb-4">
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Ads Spender</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Alokasi Biaya Promosi</p>
           </div>
-          <div className="h-[250px] sm:h-[350px] w-full flex justify-center">
+          <div className="h-[250px] sm:h-[350px] w-full flex justify-center [&_.recharts-wrapper]:outline-none focus:outline-none">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={charts.topAds} margin={{ top: 30, right: 0, left: 0, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -498,11 +512,10 @@ export default function Dashboard() {
                 <Tooltip content={<CompareTooltip accentColor="#FF7A00" useRunrate={false} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                 
-                {/* ⚡ KOREKSI 2: Menerapkan renderCustomBarLabel pada Chart Top 10 Ads */}
-                <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
+                <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} onClick={handleChartClick} style={{ outline: 'none', cursor: 'pointer' }}>
                   <LabelList dataKey="adsLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
                 </Bar>
-                <Bar dataKey="ads" name="Bulan Ini" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} style={{ outline: 'none' }}>
+                <Bar dataKey="ads" name="Bulan Ini" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} onClick={handleChartClick} style={{ outline: 'none', cursor: 'pointer' }}>
                   <LabelList dataKey="ads" content={(props) => renderCustomBarLabel(props, '#FF7A00', 9)} />
                 </Bar>
               </BarChart>
@@ -622,9 +635,9 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-3">
                   {mcaDetails.list.map((item, i) => (
-                    <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#00B14F]/30 transition-colors">
+                    <div key={i} onClick={() => { setIsMcaModalOpen(false); navigate(`/merchant/${item.id}`); }} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#00B14F] hover:shadow-md cursor-pointer transition-all group">
                       <div>
-                        <h4 className="font-black text-slate-800 text-sm">{item.name}</h4>
+                        <h4 className="font-black text-slate-800 text-sm group-hover:text-[#00B14F] transition-colors">{item.name}</h4>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded flex items-center gap-1">
                             <Clock size={10} /> {item.dateStr}
@@ -640,8 +653,11 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
-                      <div className="font-mono font-black text-slate-700 text-base sm:text-right bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 self-start sm:self-auto">
-                        {formatRupiah(item.amount)}
+                      <div className="flex items-center gap-2">
+                        <div className="font-mono font-black text-slate-700 text-base sm:text-right bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                          {formatRupiah(item.amount)}
+                        </div>
+                        <ChevronRight size={16} className="text-slate-300 group-hover:text-[#00B14F] transition-colors" />
                       </div>
                     </div>
                   ))}
