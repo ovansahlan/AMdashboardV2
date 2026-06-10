@@ -22,9 +22,9 @@ const safeParseDate = (dateStr) => {
 };
 
 export default function MerchantPresentation() {
+  // ⚡ RAW DAILY DICABUT: Kita fokus tarik Dashboard & Historis saja
   const { data: dashboardData, isLoading: loadDash, error: errDash } = useSheetData('getDashboard');
   const { data: historisData, isLoading: loadHist, error: errHist } = useSheetData('getHistoris');
-  const { data: dailyData, isLoading: loadDaily, error: errDaily } = useSheetData('getRawDaily');
 
   const { selectedAm } = useContext(GlobalFilterContext); 
   const [selectedMex, setSelectedMex] = useState('');
@@ -51,7 +51,7 @@ export default function MerchantPresentation() {
   }, [merchantOptions, selectedMex]);
 
   const profile = useMemo(() => {
-    if (!selectedMex || !dashboardData || !historisData || !dailyData) return null;
+    if (!selectedMex || !dashboardData || !historisData) return null;
 
     // --- 1. MAPPING DASHBOARD (MTD Current) ---
     const dashRow = dashboardData.find(r => r[4] === selectedMex);
@@ -62,32 +62,39 @@ export default function MerchantPresentation() {
       campaignRaw = dashRow[44] || ''; 
     }
 
-    // --- 2. MAPPING HISTORIS 6 BULAN (Format Baru) ---
+    // --- 2. MAPPING HISTORIS 6 BULAN ---
     let historyChart = [], aov = 0;
+    
+    // Pastikan data historis ada dan berwujud array
     if (Array.isArray(historisData) && historisData.length > 1) {
-      // Ambil baris milik merchant ini saja
-      const myHistoryRows = historisData.filter(r => r[3] === selectedMex || r[2] === mexId);
       
-      // Urutkan berdasarkan kolom tanggal (B / Index 1) dari paling lama ke terbaru
+      // Filter baris yang nama merchant-nya (Kolom D / Index 3) atau ID-nya sama
+      const myHistoryRows = historisData.filter(r => {
+        const rowName = r[3] ? r[3].toString().trim() : '';
+        const rowId = r[2] ? r[2].toString().trim() : '';
+        return rowName === selectedMex || rowId === mexId;
+      });
+      
+      // Urutkan dari bulan terlama ke terbaru (berdasarkan Kolom B / Index 1)
       myHistoryRows.sort((a, b) => safeParseDate(a[1]) - safeParseDate(b[1]));
 
       historyChart = myHistoryRows.map(row => {
         const dateObj = safeParseDate(row[1]);
         const monthLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
 
-        // Mapping Data sesuai panduan kolom Anda
+        // Tarik data persis sesuai kolom CSV Anda
         const basketSize = parseNumber(row[9]); // J: Basket Size
         const mfp = parseNumber(row[10]);       // K: MFP
         const mfc = parseNumber(row[11]);       // L: MFC
         const cpo = parseNumber(row[12]);       // M: CPO
         const gms = parseNumber(row[13]);       // N: GMS
         const baseComm = parseNumber(row[14]);  // O: Basic Commission
-        aov = parseNumber(row[15]);             // P: AOV (Ambil yang terakhir)
+        aov = parseNumber(row[15]);             // P: AOV (Diambil dari bulan terakhir)
         const adsMobile = parseNumber(row[16]); // Q: Ads Mobile
         const adsWeb = parseNumber(row[17]);    // R: Ads Web
         const adsDirect = parseNumber(row[18]); // S: Direct Ads
 
-        // Kalkulasi Matriks Inti
+        // Kalkulasi Net Sales
         const totalAds = adsMobile + adsWeb + adsDirect;
         const merchantInvestment = mfp + mfc + totalAds + cpo + gms + baseComm;
         const netSales = basketSize - merchantInvestment;
@@ -101,32 +108,24 @@ export default function MerchantPresentation() {
       });
     }
 
-    // --- 3. MAPPING RAW DAILY ---
-    const dailyChart = Array.isArray(dailyData) 
-      ? dailyData.filter(r => r[1] === selectedMex).map(r => ({
-            day: r[0]?.split('-')[2] ? `Tgl ${r[0].split('-')[2]}` : r[0],
-            'Orders': parseInt(r[2]) || 0, 'Ads Spent': parseFloat(r[3]) || 0
-          }))
-      : [];
+    return { cleanName: selectedMex.toString().trim(), mexId, amName, bsMTD, campaignRaw, aov, historyChart };
+  }, [selectedMex, dashboardData, historisData]);
 
-    return { cleanName: selectedMex.toString().trim(), mexId, amName, bsMTD, campaignRaw, aov, historyChart, dailyChart };
-  }, [selectedMex, dashboardData, historisData, dailyData]);
-
-  const isLoading = loadDash || loadHist || loadDaily;
-  const anyError = errDash || errHist || errDaily;
+  // ⚡ Hanya tunggu Dashboard dan Historis
+  const isLoading = loadDash || loadHist;
+  const anyError = errDash || errHist;
 
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center min-h-[70vh] items-center gap-3">
         <Loader2 className="animate-spin text-[#00B14F]" size={40} />
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Mengkalkulasi Matriks Finansial...</p>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Mengkalkulasi Matriks Finansial 6 Bulan...</p>
       </div>
     );
   }
 
   if (anyError) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-xs flex items-center gap-2"><AlertCircle size={16} /><span>Gagal memuat data: {anyError.toString()}</span></div>;
 
-  // ⚡ TOOLTIP KHUSUS HISTORI (Mewah & Jelas)
   const HistoryTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -170,7 +169,7 @@ export default function MerchantPresentation() {
             <p className="text-[10px] sm:text-xs font-bold text-[#00B14F] uppercase tracking-wider">Presentasi Kinerja Partner</p>
           </div>
         </div>
-        <div className="flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl w-full lg:w-[400px] lg:absolute lg:left-1/2 lg:-translate-x-1/2 focus-within:border-[#00B14F] transition-colors shadow-sm">
+        <div className="flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl w-full lg:w-[400px] focus-within:border-[#00B14F] transition-colors shadow-sm">
           <Store size={16} className="text-[#00B14F] shrink-0" />
           <select value={selectedMex} onChange={(e) => setSelectedMex(e.target.value)} className="text-xs sm:text-sm font-black text-slate-800 bg-transparent outline-none cursor-pointer w-full truncate text-center [text-align-last:center]">
             {merchantOptions.length === 0 ? <option value="">Tidak ada merchant</option> : merchantOptions.map(m => <option key={m.id} value={m.fullName}>{m.name}</option>)}
@@ -190,63 +189,41 @@ export default function MerchantPresentation() {
             <div className="bg-white p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4 relative overflow-hidden">
               <div className="absolute right-0 bottom-0 text-[#FF7A00]/5 -mr-4 -mb-4"><DollarSign size={100}/></div>
               <div className="p-3 bg-[#FFF2E5] text-[#FF7A00] rounded-2xl"><DollarSign size={24} /></div>
-              <div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nilai Tiket (AOV) Rata-Rata</span><h3 className="text-lg sm:text-2xl font-black text-slate-900">{formatRupiah(profile.aov)}</h3></div>
+              <div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Nilai Tiket (AOV) Terakhir</span><h3 className="text-lg sm:text-2xl font-black text-slate-900">{formatRupiah(profile.aov)}</h3></div>
             </div>
           </div>
 
-          {/* ⚡ CHART 1: HISTORI FINANSIAL & INVESTMENT (BARU) */}
+          {/* CHART 1: HISTORI FINANSIAL & INVESTMENT */}
           <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
             <div className="mb-6 border-b border-slate-100 pb-3 text-center">
               <h4 className="text-sm sm:text-base font-black text-slate-900">Performa Finansial 6 Bulan Terakhir</h4>
               <p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Komparasi Penjualan Bersih (Net Sales) vs Total Investasi Toko (Comm, Promo, Ads)</p>
             </div>
-            <div className="h-[280px] sm:h-[350px] w-full flex justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={profile.historyChart} margin={{ top: 30, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                  <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} />
-                  <YAxis hide />
-                  <Tooltip content={<HistoryTooltip />} cursor={{ fill: 'transparent' }} />
-                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '15px' }} />
-                  
-                  {/* Stacked Bar (Net Sales di Bawah, Investment di Atas) */}
-                  <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 4, 4]} barSize={36} />
-                  <Bar dataKey="merchantInvestment" name="Total Investment" stackId="a" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={36} />
-                  
-                  {/* Line Trend untuk Total Basket Size Utuh */}
-                  <Line type="monotone" dataKey="basketSize" name="Gross Basket Size" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
-              <div className="mb-4 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Tren Pesanan Selesai Harian</h4></div>
-              <div className="h-[220px] sm:h-[260px] w-full">
+            
+            {profile.historyChart && profile.historyChart.length > 0 ? (
+              <div className="h-[280px] sm:h-[350px] w-full flex justify-center">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={profile.dailyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                    <XAxis dataKey="day" stroke="#9CA3AF" fontSize={9} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="Orders" stroke="#00B14F" strokeWidth={3} dot={{ r: 3, fill: '#00B14F' }} />
-                  </LineChart>
+                  <ComposedChart data={profile.historyChart} margin={{ top: 30, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} />
+                    <YAxis hide />
+                    <Tooltip content={<HistoryTooltip />} cursor={{ fill: 'transparent' }} />
+                    <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '15px' }} />
+                    
+                    {/* Stacked Bar (Net Sales di Bawah, Investment di Atas) */}
+                    <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 4, 4]} barSize={36} />
+                    <Bar dataKey="merchantInvestment" name="Total Investment" stackId="a" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={36} />
+                    
+                    {/* Line Trend untuk Total Basket Size Utuh */}
+                    <Line type="monotone" dataKey="basketSize" name="Gross Basket Size" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
-              <div className="mb-4 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Alokasi Harian GrabAds</h4></div>
-              <div className="h-[220px] sm:h-[260px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={profile.dailyChart} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                    <XAxis dataKey="day" stroke="#9CA3AF" fontSize={9} />
-                    <Tooltip formatter={(v) => [formatRupiah(v), 'Ads Spent']} />
-                    <Bar dataKey="Ads Spent" fill="#FF7A00" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            ) : (
+               <div className="h-[200px] flex items-center justify-center text-slate-400 font-bold text-xs bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
+                 Data histori belum tersedia atau Merchant ID tidak cocok.
+               </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
