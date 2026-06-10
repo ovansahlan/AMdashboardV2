@@ -1,5 +1,5 @@
 import React, { useMemo, useContext, useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // ⚡ IMPORT NAVIGATE
+import { useNavigate } from 'react-router-dom';
 import { useSheetData } from '../hooks/useSheetData';
 import { GlobalFilterContext } from '../App';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList, PieChart, Pie, Cell } from 'recharts';
@@ -68,7 +68,7 @@ const renderCustomBarLabel = (props, color, fontSize) => {
       textAnchor="start" 
       dominantBaseline="central"
       transform={`rotate(-90, ${x + width / 2}, ${y - 6})`}
-      style={{ pointerEvents: 'none' }} // Agar klik tembus ke bar
+      style={{ pointerEvents: 'none', outline: 'none' }}
     >
       {formatShorthandNum(value)}
     </text>
@@ -81,11 +81,10 @@ const renderCustomBarLabel = (props, color, fontSize) => {
 export default function Dashboard() {
   const { data, isLoading, error } = useSheetData('getDashboard');
   const { selectedAm, setSelectedAm } = useContext(GlobalFilterContext);
-  const navigate = useNavigate(); // ⚡ MENGAKTIFKAN NAVIGATOR
+  const navigate = useNavigate(); 
   
   const [isMcaModalOpen, setIsMcaModalOpen] = useState(false);
 
-  // Fungsi saat batang grafik diklik
   const handleChartClick = (dataPayload) => {
     if (dataPayload && dataPayload.mexId) {
       navigate(`/merchant/${dataPayload.mexId}`);
@@ -232,7 +231,6 @@ export default function Dashboard() {
       let shortChartName = mexName.split('-')[0].split(',')[0].trim();
       if (shortChartName.length > 12) shortChartName = shortChartName.substring(0, 12) + '...';
 
-      // ⚡ MASUKKAN MEX ID AGAR CHART BISA REDIRECT
       merchantRankings.push({
         mexId: mexId,
         name: shortChartName,
@@ -444,7 +442,7 @@ export default function Dashboard() {
 
         <button 
           onClick={() => setIsMcaModalOpen(true)}
-          className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] hover:shadow-md transition-all group relative overflow-hidden text-center cursor-pointer"
+          className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center hover:border-[#00B14F] hover:shadow-md transition-all group relative overflow-hidden text-center cursor-pointer outline-none focus:outline-none"
         >
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
              <ChevronRight size={16} className="text-[#00B14F]" />
@@ -475,9 +473,9 @@ export default function Dashboard() {
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Basket Size</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Bulan Lalu vs Bulan Ini</p>
           </div>
-          {/* ⚡ PERBAIKAN: [&_.recharts-wrapper]:outline-none menghapus border biru jelek saat chart diklik */}
-          <div className="h-[250px] sm:h-[350px] w-full flex justify-center [&_.recharts-wrapper]:outline-none focus:outline-none">
-            <ResponsiveContainer width="100%" height="100%">
+          {/* ⚡ PERBAIKAN: Menambahkan select-none dan mematikan outline global dalam pembungkus */}
+          <div className="h-[250px] sm:h-[350px] w-full flex justify-center select-none [&_*]:outline-none [&_*]:focus:outline-none">
+            <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }}>
               <BarChart data={charts.topSales} margin={{ top: 30, right: 0, left: 0, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={9} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={60} interval={0} padding={{ left: 15, right: 15 }} />
@@ -485,7 +483,6 @@ export default function Dashboard() {
                 <Tooltip content={<CompareTooltip accentColor="#00B14F" useRunrate={true} />} cursor={{ fill: 'transparent' }} />
                 <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                 
-                {/* ⚡ PERBAIKAN: Menambahkan onClick dan merubah cursor menjadi pointer */}
                 <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} onClick={handleChartClick} style={{ outline: 'none', cursor: 'pointer' }}>
                   <LabelList dataKey="salesLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
                 </Bar>
@@ -503,8 +500,9 @@ export default function Dashboard() {
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Ads Spender</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Alokasi Biaya Promosi</p>
           </div>
-          <div className="h-[250px] sm:h-[350px] w-full flex justify-center [&_.recharts-wrapper]:outline-none focus:outline-none">
-            <ResponsiveContainer width="100%" height="100%">
+          {/* ⚡ PERBAIKAN: Menambahkan select-none dan mematikan outline global dalam pembungkus */}
+          <div className="h-[250px] sm:h-[350px] w-full flex justify-center select-none [&_*]:outline-none [&_*]:focus:outline-none">
+            <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }}>
               <BarChart data={charts.topAds} margin={{ top: 30, right: 0, left: 0, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={9} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={60} interval={0} padding={{ left: 15, right: 15 }} />
@@ -571,7 +569,7 @@ export default function Dashboard() {
             <h4 className="text-sm sm:text-base font-black text-slate-900">Campaign Mix</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Distribusi partisipasi promo toko aktif.</p>
           </div>
-          <div className="h-[220px] sm:h-[280px] w-full flex justify-center items-center">
+          <div className="h-[220px] sm:h-[280px] w-full flex justify-center items-center [&_*]:outline-none [&_*]:focus:outline-none select-none">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie
@@ -610,7 +608,7 @@ export default function Dashboard() {
                   <p className="text-xs font-bold text-slate-400 mt-0.5 uppercase tracking-wider">Bulan Berjalan</p>
                 </div>
               </div>
-              <button onClick={() => setIsMcaModalOpen(false)} className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
+              <button onClick={() => setIsMcaModalOpen(false)} className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors outline-none focus:outline-none">
                 <X size={20} />
               </button>
             </div>

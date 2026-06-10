@@ -20,71 +20,116 @@ const createMockDatabase = () => {
     { name: 'Nasi Goreng Mafia', am: 'Dadan Nurdiansyah', sales: '28,000,000', salesLM: '35,000,000', rr: '25,000,000', investment: '5,000,000', ads: '200,000', adsLM: '500,000', pts: '0', mcaStatus: '', mcaDate: '', mcaAmt: '0', campaign: '-no campaign' },
   ];
 
-  // Memetakan ke indeks Array yang sama persis dengan Google Sheet
   const formattedMerchants = rawMerchants.map(m => {
     const row = new Array(70).fill('');
-    row[2] = m.am;             // Kolom C: AM Name
-    row[4] = m.name;           // Kolom E: Mex Name
-    row[18] = m.salesLM;       // Kolom S: Last Month (BS)
-    row[19] = m.sales;         // Kolom T: MTD (BS)
-    row[20] = m.rr;            // Kolom U: Runrate (BS)
-    row[23] = m.investment;    // Kolom X: MTD (MI)
-    row[30] = m.adsLM;         // Kolom AE: Last Month (Ads)
-    row[31] = m.ads;           // Kolom AF: Total MTD (Ads)
-    row[39] = m.mcaStatus;     // Kolom AN: Disburse Status
-    row[40] = m.mcaDate;       // Kolom AO: Disbursed date
-    row[41] = m.mcaAmt;        // Kolom AP: MCA Amount
-    row[44] = m.campaign;      // Kolom AS: Campaign 
-    row[45] = m.pts;           // Kolom AT: Total Point Campaign
+    row[2] = m.am;             
+    row[4] = m.name;           
+    row[18] = m.salesLM;       
+    row[19] = m.sales;         
+    row[20] = m.rr;            
+    row[23] = m.investment;    
+    row[30] = m.adsLM;         
+    row[31] = m.ads;           
+    row[37] = m.mcaAmt;        // ⚡ Limit MCA
+    row[39] = m.mcaStatus;     
+    row[40] = m.mcaDate;       
+    row[41] = m.mcaAmt;        
+    row[44] = m.campaign;      
+    row[45] = m.pts;           
     return row;
   });
 
   return [
-    ['Header Info', 'MEI 2026'], [], [], [], // 4 Baris dummy header agar sinkron dengan baris asli (mulai data di index 4)
+    ['Header Info', 'MEI 2026', 'Update: 15 Juni 2026'], [], [], [], 
     ...formattedMerchants
   ];
 };
 
-export function useSheetData(endpoint) {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+// ==========================================
+// ⚡ GLOBAL MEMORY CACHE
+// Mengunci data di memori agar perpindahan halaman menjadi 0 detik
+// ==========================================
+const globalCache = {};
+const globalPromises = {}; 
+
+export function useSheetData(endpoint = 'getDashboard') {
+  // Jika cache sudah ada, nilai default state langsung terisi (Bypass Loading)
+  const [data, setData] = useState(globalCache[endpoint] || null);
+  const [isLoading, setIsLoading] = useState(!globalCache[endpoint]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // 1. CACHE HIT: Data sudah ada di memori
+    if (globalCache[endpoint]) {
+      setData(globalCache[endpoint]);
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. PROMISE SHARING: Nebeng request jika komponen lain sedang menarik data yang sama
+    if (globalPromises[endpoint]) {
+      setIsLoading(true);
+      globalPromises[endpoint]
+        .then((resData) => {
+          setData(resData);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          if (err.name !== 'AbortError') setError(err.message);
+          setIsLoading(false);
+        });
+      return;
+    }
+
+    // 3. FETCH BARU
+    setIsLoading(true);
     const abortController = new AbortController();
 
-    const fetchData = async () => {
-      setIsLoading(true);
+    const fetchPromise = async () => {
       const isLocalDev = import.meta.env.DEV;
 
-      // JIKA BERJALAN DI STACKBLITZ LOKAL
+      // SKENARIO A: LOKAL (MOCK DATA)
       if (isLocalDev) {
-        setTimeout(() => {
-          setData(createMockDatabase());
-          setError(null);
-          setIsLoading(false);
-        }, 500); // Simulasi delay internet
-        return;
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            const mockData = createMockDatabase();
+            globalCache[endpoint] = mockData; // Simpan ke cache global
+            resolve(mockData);
+          }, 500); 
+        });
       }
 
-      // JIKA BERJALAN DI VERCEL PRODUCTION
-      try {
-        const response = await fetch(`/api/${endpoint}?t=${Date.now()}`, {
-          signal: abortController.signal
-        });
-        if (!response.ok) throw new Error('Gagal menarik data dari API Vercel');
-        const result = await response.json();
-        setData(result.data);
-        setError(null);
-      } catch (err) {
-        if (err.name !== 'AbortError') setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
+      // SKENARIO B: PRODUCTION (VERCEL API)
+      const response = await fetch(`/api/${endpoint}?t=${Date.now()}`, {
+        signal: abortController.signal
+      });
+      
+      if (!response.ok) throw new Error('Gagal menarik data dari API Vercel');
+      
+      const result = await response.json();
+      const finalData = result.data || result;
+      
+      globalCache[endpoint] = finalData; // Simpan ke cache global
+      return finalData;
     };
 
-    fetchData();
-    return () => abortController.abort();
+    // Simpan status fetch ke dalam global promise
+    globalPromises[endpoint] = fetchPromise();
+
+    // Eksekusi promise
+    globalPromises[endpoint]
+      .then((resData) => {
+        setData(resData);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError(err.message);
+        setIsLoading(false);
+      });
+
+    return () => {
+      abortController.abort();
+    };
   }, [endpoint]);
 
   return { data, isLoading, error };
