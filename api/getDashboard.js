@@ -20,11 +20,23 @@ export default async function handler(req, res) {
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.SPREADSHEET_ID;
 
-    // Ubah baris ini di dalam api/getDashboard.js
+    // ⚡ 1. TANGKAP PARAMETER TAB DARI FRONTEND
+    // Jika tidak ada parameter (misal di halaman awal), default ke 'getDashboard'
+    const requestedTab = req.query.tab || 'getDashboard';
+
+    // ⚡ 2. MAPPING LOGIKA RANGE SHEET
+    let targetRange = 'Master_Outlet!A:BZ'; // Default untuk Dashboard Utama & Merchant List
+
+    if (requestedTab === 'getHistoris') {
+      targetRange = 'Historis_Bulanan!A:AZ'; // Arahkan ke tab historis (Beri jarak sampai kolom AZ untuk aman)
+    } else if (requestedTab === 'getRawDaily') {
+      targetRange = 'Raw_daily!A:Z'; // Persiapan untuk mengarah ke tab harian
+    }
+
+    // ⚡ 3. TARIK DATA DARI GOOGLE SHEETS API BERDASARKAN RANGE DINAMIS
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      // Ubah range-nya agar mencakup dari Kolom A sampai Kolom BZ, mulai baris ke-5
-      range: 'Master_Outlet!A:BZ', 
+      range: targetRange, 
     });
 
     const rows = response.data.values;

@@ -36,12 +36,46 @@ const createMockDatabase = () => {
 };
 
 const createMockHistoris = () => {
-  return [
-    ['Mex Name', 'Jan Basket', 'Feb Basket', 'Mar Basket', 'Apr Basket', 'May Basket', 'Jun Basket', 'Jan Orders', 'Feb Orders', 'Mar Orders', 'Apr Orders', 'May Orders', 'Jun Orders', 'Promo Usage MTD', 'AOV'],
-    ['Ayam Goreng Sari Sunda - Pamoyanan', '50', '55', '62', '68', '70', '85.5', '1200', '1350', '1500', '1620', '1700', '2100', '45%', '40700'],
-    ['RM Nasi Kapau Uni Yen - Sawah Gede', '48', '50', '52', '58', '62', '60.3', '980', '1020', '1100', '1150', '1250', '1210', '30%', '49800'],
-    ['The Home Made Food - Gadog', '70', '72', '75', '80', '85', '76.8', '1400', '1450', '1510', '1600', '1720', '1550', '15%', '49500']
+  // Simulasi struktur persis seperti file Historis_Bulanan.csv
+  const headers = [
+    'latest_update', 'first_day_of_month', 'merchant_id', 'merchant_name', 'user', 
+    'completed_orders', 'total_orders', 'orders_with_promo_mfp_gms', 'gmv', 'basket_size', 
+    'mfp_mex_spend', 'mfc_mex_spend', 'cpo', 'gms', 'basic_commission', 
+    'aov', 'ads_mobile', 'ads_web', 'ads_direct', 'ppd_co', 'ppd_gmv', 
+    'co_with_ads', 'bs_with_ads', 'co_a_0_20rb', 'co_b_20_40rb', 'co_c_40_60rb', 
+    'co_d_60_100rb', 'co_e_above_100rb', 'photo_penetration', 'active_hours_monthly'
   ];
+
+  const mockRows = [];
+  const merchants = [
+    'Ayam Goreng Sari Sunda - Pamoyanan',
+    'RM Nasi Kapau Uni Yen - Sawah Gede',
+    'The Home Made Food - Gadog',
+    '1990 COFFEENERY - Solokpandan',
+    'Pare Cianjur - Bojong'
+  ];
+
+  merchants.forEach((mexName, idx) => {
+    const mexId = `MEX-${1000 + idx}`;
+    // Buat data mundur 6 bulan (Jan - Jun 2026)
+    for (let month = 1; month <= 6; month++) {
+      const baseBS = 40000000 + (Math.random() * 30000000) + (month * 5000000); // Trend Naik
+      const baseComm = baseBS * 0.20; // Komisi 20%
+      const mfp = baseBS * 0.05; // MFP 5%
+      const mfc = baseBS * 0.02; // MFC 2%
+      const ads = baseBS * 0.03; // Ads 3%
+      
+      mockRows.push([
+        `6/7/2026`, `${month}/1/2026`, mexId, mexName, 'user-id',
+        '1000', '1200', '300', '0', String(baseBS),
+        String(mfp), String(mfc), '0', '0', String(baseComm),
+        '45000', String(ads * 0.6), String(ads * 0.4), '0', '0', '0',
+        '0', '0', '0', '0', '0', '0', '0', '95%', '300'
+      ]);
+    }
+  });
+
+  return [headers, ...mockRows];
 };
 
 const createMockDaily = () => {
