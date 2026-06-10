@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Store, Megaphone, Target, ArrowLeft, Menu, X, MonitorPlay } from 'lucide-react'; // ⚡ Mengganti Presentation dengan MonitorPlay
+import { LayoutDashboard, Users, Store, Megaphone, Target, ArrowLeft, Menu, X, MonitorPlay } from 'lucide-react';
 
 // Import Global Provider
-import { GlobalProvider, GlobalFilterContext } from './context/GlobalContext';
+import { GlobalProvider } from './context/GlobalContext';
 
 // Import Semua Halaman
 import Home from './pages/Home';
@@ -16,52 +16,66 @@ import MerchantPresentation from './pages/MerchantPresentation';
 
 const OKRTracker = () => <div className="p-6 text-slate-800 font-medium">OKR Tracker View</div>;
 
-const SidebarContent = ({ onClose }) => {
+// =======================================
+// KOMPONEN SIDEBAR (Dinamis: Full & Mini)
+// =======================================
+const SidebarContent = ({ onClose, isCollapsed, setCollapsed }) => {
   const menuItems = [
     { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
     { path: '/merchant', icon: <Users size={20} />, label: 'Merchant List' },
-    { path: '/present', icon: <MonitorPlay size={20} />, label: 'Pitching Mode' }, // ⚡ Aman dari browser global conflict
+    { path: '/present', icon: <MonitorPlay size={20} />, label: 'Pitching Mode' },
     { path: '/gms', icon: <Megaphone size={20} />, label: 'Campaign Tracker' },
     { path: '/ads', icon: <Target size={20} />, label: 'Ads Tracker' },
     { path: '/okr', icon: <Target size={20} />, label: 'OKR Target' },
   ];
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="h-[72px] flex items-center justify-between px-6 border-b border-slate-100 shrink-0">
+    <div className="flex flex-col h-full bg-white relative">
+      {/* 1. Header Sidebar (Logo Klik untuk Toggle Buka/Tutup) */}
+      <div className={`h-[72px] flex items-center ${isCollapsed ? 'justify-center' : 'justify-between px-6'} border-b border-slate-100 shrink-0 transition-all duration-300`}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-[#00B14F] rounded-xl flex items-center justify-center shadow-sm shadow-[#00B14F]/20">
+          {/* Ikon Hijau yang Clickable */}
+          <button 
+            onClick={() => setCollapsed && setCollapsed(!isCollapsed)}
+            className={`w-9 h-9 bg-[#00B14F] rounded-xl flex items-center justify-center shadow-sm shadow-[#00B14F]/20 shrink-0 transition-all duration-200 ${setCollapsed ? 'cursor-pointer hover:scale-105 active:scale-95 hover:shadow-[#00B14F]/40' : ''}`}
+            title="Buka/Tutup Sidebar"
+          >
             <Store size={20} className="text-white" />
-          </div>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight">Grab<span className="text-[#00B14F]">Metrics</span></h1>
+          </button>
+          {!isCollapsed && <h1 className="text-xl font-black text-slate-900 tracking-tight whitespace-nowrap">Grab<span className="text-[#00B14F]">Metrics</span></h1>}
         </div>
-        <button onClick={onClose} className="md:hidden p-2 text-slate-400 hover:text-slate-700 bg-slate-50 rounded-full transition-colors">
-          <X size={20} />
-        </button>
+        {!isCollapsed && onClose && (
+          <button onClick={onClose} className="md:hidden p-2 text-slate-400 hover:text-slate-700 bg-slate-50 rounded-full transition-colors">
+            <X size={20} />
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-3">Menu Utama</div>
+      {/* 2. Menu Navigasi (Jarak diperlebar jadi space-y-2.5) */}
+      <nav className="flex-1 py-6 space-y-2.5 overflow-y-auto px-3 overflow-x-hidden">
+        {!isCollapsed && <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-3 whitespace-nowrap">Menu Utama</div>}
         {menuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            onClick={onClose}
+            onClick={onClose} // Eksekusi penutupan di HP
+            title={isCollapsed ? item.label : ''} // Memunculkan tooltip nama menu saat mode Mini Icon
             className={({ isActive }) => `
-              flex items-center gap-3 px-3.5 py-3 rounded-2xl font-bold text-sm transition-all duration-200
+              flex items-center ${isCollapsed ? 'justify-center w-11 h-11 mx-auto' : 'gap-3 px-3.5 py-3'} rounded-2xl font-bold text-sm transition-all duration-200
               ${isActive ? 'bg-[#E5F7ED] text-[#00B14F] shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
             `}
           >
-            {item.icon}
-            <span className="mt-0.5">{item.label}</span>
+            <div className="shrink-0">{item.icon}</div>
+            {!isCollapsed && <span className="mt-0.5 whitespace-nowrap">{item.label}</span>}
           </NavLink>
         ))}
       </nav>
 
+      {/* 3. Footer (Kembali ke Portal) */}
       <div className="p-4 border-t border-slate-100 shrink-0">
-        <NavLink to="/" onClick={onClose} className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-2xl font-bold text-sm text-slate-600 transition-all border border-slate-200">
-          <ArrowLeft size={18} />
-          Kembali ke Portal
+        <NavLink to="/" onClick={onClose} className={`flex items-center ${isCollapsed ? 'justify-center w-11 h-11 mx-auto px-0' : 'justify-center gap-2 px-4'} py-3 bg-slate-50 hover:bg-slate-100 rounded-2xl font-bold text-sm text-slate-600 transition-all border border-slate-200`} title={isCollapsed ? "Kembali ke Portal" : ""}>
+          <ArrowLeft size={18} className="shrink-0" />
+          {!isCollapsed && <span className="whitespace-nowrap">Portal</span>}
         </NavLink>
       </div>
     </div>
@@ -72,33 +86,59 @@ const AppLayout = () => {
   const location = useLocation();
   const isHomepage = location.pathname === '/'; 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // ⚡ STATE: Kendali Auto-Hide/Collapse untuk Desktop
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
-  useEffect(() => setIsMobileMenuOpen(false), [location.pathname]);
+  useEffect(() => {
+    // 1. Tutup penuh sidebar di versi HP
+    setIsMobileMenuOpen(false);
+    
+    // 2. Auto-lipat sidebar di versi Desktop setiap kali pindah halaman
+    // Agar area grafik dan presentasi (terutama Pitching Mode) jadi Full Width!
+    if (location.pathname !== '/') {
+      setIsDesktopCollapsed(true);
+    }
+  }, [location.pathname]);
 
   return (
     <div className="flex h-screen bg-[#F7F9FA] selection:bg-[#00B14F]/20 selection:text-[#00B14F] overflow-hidden relative">
+      {/* ⚡ FONT PLUS JAKARTA SANS GLOBAL */}
       <style>{`
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-  * { font-family: 'Plus Jakarta Sans', sans-serif !important; }
-`}</style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Plus Jakarta Sans', sans-serif !important; }
+        /* Memperhalus tampilan scrollbar di sidebar */
+        .overflow-y-auto::-webkit-scrollbar { width: 4px; }
+        .overflow-y-auto::-webkit-scrollbar-thumb { background-color: #E5E7EB; border-radius: 4px; }
+      `}</style>
 
+      {/* ========================================================= */}
+      {/* SIDEBAR DESKTOP (Punya fitur mengecil ke 80px)            */}
+      {/* ========================================================= */}
       {!isHomepage && (
-        <aside className="w-[260px] border-r border-slate-200 h-full shadow-[4px_0_24px_rgb(0,0,0,0.02)] z-20 hidden md:block shrink-0">
-          <SidebarContent onClose={() => {}} />
+        <aside className={`${isDesktopCollapsed ? 'w-[80px]' : 'w-[260px]'} transition-all duration-300 ease-in-out border-r border-slate-200 h-full shadow-[4px_0_24px_rgb(0,0,0,0.02)] z-20 hidden md:block shrink-0 relative`}>
+          <SidebarContent 
+            isCollapsed={isDesktopCollapsed} 
+            setCollapsed={setIsDesktopCollapsed} 
+          />
         </aside>
       )}
 
+      {/* ========================================================= */}
+      {/* SIDEBAR MOBILE (Mekanisme Slide In/Out layar sentuh)        */}
+      {/* ========================================================= */}
       {!isHomepage && (
         <>
           {isMobileMenuOpen && (
             <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
           )}
           <aside className={`fixed inset-y-0 left-0 w-[280px] bg-white z-50 md:hidden transform transition-transform duration-300 ease-in-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-            <SidebarContent onClose={() => {}} />
+            <SidebarContent onClose={() => setIsMobileMenuOpen(false)} isCollapsed={false} />
           </aside>
         </>
       )}
 
+      {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {!isHomepage && (
           <header className="h-[72px] bg-white border-b border-slate-100 flex items-center justify-between px-4 md:hidden shrink-0 z-10 shadow-sm">
