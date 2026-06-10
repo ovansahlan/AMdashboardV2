@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useContext } from 'react'; 
+import React, { useState, useMemo, useContext, useEffect } from 'react'; 
 import { useSheetData } from '../hooks/useSheetData';
 import { GlobalFilterContext } from '../context/GlobalContext'; 
 import { BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
-import { Loader2, AlertCircle, Award, Store, UserCircle, Megaphone, ShoppingCart, Clock, CheckCircle2, TrendingUp, MonitorPlay, Users, Percent, DollarSign, Activity, BarChart2 } from 'lucide-react';
+import { Loader2, AlertCircle, Award, Store, UserCircle, Megaphone, ShoppingCart, Clock, CheckCircle2, TrendingUp, MonitorPlay, Users, Percent, DollarSign, Search, X } from 'lucide-react';
 
 const formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
 
@@ -27,6 +27,10 @@ export default function MerchantPresentation() {
 
   const { selectedAm } = useContext(GlobalFilterContext); 
   const [selectedMex, setSelectedMex] = useState('');
+  
+  // ⚡ STATE UNTUK FITUR PENCARIAN (SEARCHABLE DROPDOWN)
+  const [searchMex, setSearchMex] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const merchantOptions = useMemo(() => {
     if (!dashboardData || !Array.isArray(dashboardData)) return [];
@@ -42,12 +46,29 @@ export default function MerchantPresentation() {
     return list;
   }, [dashboardData, selectedAm]);
 
-  React.useEffect(() => {
+  // Sinkronisasi pilihan dropdown awal
+  useEffect(() => {
     if (merchantOptions.length > 0) {
-      const looksFound = merchantOptions.some(m => m.fullName === selectedMex);
-      if (!looksFound) setSelectedMex(merchantOptions[0].fullName);
-    } else setSelectedMex('');
+      const looksFound = merchantOptions.find(m => m.fullName === selectedMex);
+      if (!looksFound) {
+        setSelectedMex(merchantOptions[0].fullName);
+        setSearchMex(merchantOptions[0].name);
+      } else {
+        setSearchMex(looksFound.name);
+      }
+    } else {
+      setSelectedMex('');
+      setSearchMex('');
+    }
   }, [merchantOptions, selectedMex]);
+
+  // Filter list merchant berdasarkan input ketikan user
+  const filteredOptions = useMemo(() => {
+    return merchantOptions.filter(m => 
+      m.name.toLowerCase().includes(searchMex.toLowerCase()) || 
+      m.id.toLowerCase().includes(searchMex.toLowerCase())
+    );
+  }, [merchantOptions, searchMex]);
 
   const profile = useMemo(() => {
     if (!selectedMex || !dashboardData || !historisData) return null;
@@ -97,27 +118,18 @@ export default function MerchantPresentation() {
         const totalCpoGms = cpo + gms;
         const merchantInvestment = mfp + mfc + totalAds + totalCpoGms + baseComm;
         const netSales = basketSize - merchantInvestment;
+        
+        // ⚡ Hitung Pesanan Batal/Tidak Selesai untuk grafik Stacked Order
+        const uncompletedOrders = Math.max(0, totalOrders - completedOrders);
 
         lastAov = aov;
         lastPromoUsage = `${promoUsageRate}%`;
         lastOnlineHours = onlineHours;
 
         return {
-          month: monthLabel,
-          basketSize,
-          merchantInvestment,
-          netSales,
-          completedOrders,
-          totalOrders,
-          aov,
-          promoUsageRate,
-          onlineHours,
-          // Komponen Breakdown Dinamis untuk Stacked Bar Baru
-          baseComm,
-          mfp,
-          mfc,
-          totalAds,
-          totalCpoGms
+          month: monthLabel, basketSize, merchantInvestment, netSales,
+          completedOrders, totalOrders, uncompletedOrders, aov, promoUsageRate, onlineHours,
+          baseComm, mfp, mfc, totalAds, totalCpoGms
         };
       });
     }
@@ -139,7 +151,7 @@ export default function MerchantPresentation() {
 
   if (anyError) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-xs flex items-center gap-2"><AlertCircle size={16} /><span>Gagal memuat data: {anyError.toString()}</span></div>;
 
-  // TOOLTIP FINANSIAL UTAMA
+  // --- TOOLTIP COMPONENT DEFINITIONS ---
   const HistoryTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -159,7 +171,6 @@ export default function MerchantPresentation() {
     return null;
   };
 
-  // ⚡ TOOLTIP BREAKDOWN INVESTMENT (BARU)
   const InvestmentTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -180,11 +191,16 @@ export default function MerchantPresentation() {
 
   const OrderTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length >= 2) {
+      const completed = payload[0].value;
+      const uncompleted = payload[1].value;
+      const total = completed + uncompleted;
+      const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : 0;
       return (
-        <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 text-xs space-y-2">
+        <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 text-xs space-y-2 min-w-[200px]">
           <p className="font-black text-slate-900 border-b pb-1 text-center">{label}</p>
-          <div className="flex justify-between gap-4"><span>Total Masuk:</span><span className="font-bold">{payload[0].value} Order</span></div>
-          <div className="flex justify-between gap-4 text-[#00B14F]"><span>Selesai:</span><span className="font-black">{payload[1].value} Order</span></div>
+          <div className="flex justify-between gap-4 text-[#00B14F]"><span>Selesai (Completed):</span><span className="font-black">{completed}</span></div>
+          <div className="flex justify-between gap-4 text-red-500"><span>Batal/Gagal:</span><span className="font-black">{uncompleted}</span></div>
+          <div className="pt-1.5 border-t border-slate-100 text-center font-bold text-slate-500">Total Masuk: <span className="text-slate-800 font-black">{total}</span> | Success: <span className="text-[#00B14F] font-black">{completionRate}%</span></div>
         </div>
       );
     }
@@ -193,11 +209,13 @@ export default function MerchantPresentation() {
 
   const AovTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const aovPayload = payload.find(p => p.dataKey === 'aov');
+      const promoPayload = payload.find(p => p.dataKey === 'promoUsageRate');
       return (
-        <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 text-xs space-y-2">
+        <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 text-xs space-y-2 min-w-[210px]">
           <p className="font-black text-slate-900 border-b pb-1 text-center">{label}</p>
-          <div className="flex justify-between gap-4 text-[#FF7A00]"><span>AOV:</span><span className="font-mono font-black">{formatRupiah(payload[0].value)}</span></div>
-          <div className="flex justify-between gap-4 text-emerald-600"><span>Rasio Order Promo:</span><span className="font-black">{payload[1]?.value}%</span></div>
+          <div className="flex justify-between gap-4 text-[#FF7A00]"><span>AOV (Harga Rata2):</span><span className="font-mono font-black">{formatRupiah(aovPayload?.value || 0)}</span></div>
+          <div className="flex justify-between gap-4 text-emerald-600"><span>Rasio Order Promo:</span><span className="font-black">{promoPayload?.value || 0}%</span></div>
         </div>
       );
     }
@@ -205,28 +223,88 @@ export default function MerchantPresentation() {
   };
 
   return (
-    <div className="bg-[#F7F9FA] min-h-full space-y-4 sm:space-y-6 -mx-2 sm:mx-0 select-none [&_*]:outline-none">
+    <div className="bg-[#F7F9FA] min-h-full space-y-4 sm:space-y-6 -mx-2 sm:mx-0 select-none [&_*]:outline-none pb-8">
       
-      {/* HEADER SECTION */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:flex-row justify-between lg:items-center gap-4 relative mx-2 sm:mx-0">
+      {/* ======================================================== */}
+      {/* 1. HEADER & SEARCHABLE DROPDOWN                            */}
+      {/* ======================================================== */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:flex-row justify-between lg:items-center gap-4 relative mx-2 sm:mx-0 z-40">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-[#00B14F]/10">
             <MonitorPlay size={20} className="text-white sm:w-6 sm:h-6" />
           </div>
           <div><h1 className="text-base sm:text-xl font-black text-slate-900">Pitching Deck Mode</h1><p className="text-[10px] sm:text-xs font-bold text-[#00B14F] uppercase tracking-wider">Presentasi Kinerja Partner</p></div>
         </div>
-        <div className="flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl w-full lg:w-[400px] lg:absolute lg:left-1/2 lg:-translate-x-1/2 focus-within:border-[#00B14F] transition-colors shadow-sm">
-          <Store size={16} className="text-[#00B14F] shrink-0" />
-          <select value={selectedMex} onChange={(e) => setSelectedMex(e.target.value)} className="text-xs sm:text-sm font-black text-slate-800 bg-transparent outline-none cursor-pointer w-full truncate text-center [text-align-last:center]">
-            {merchantOptions.length === 0 ? <option value="">Tidak ada merchant</option> : merchantOptions.map(m => <option key={m.id} value={m.fullName}>{m.name}</option>)}
-          </select>
+
+        {/* Custom Searchable Input Dropdown */}
+        <div className="relative w-full lg:w-[400px]">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl w-full focus-within:border-[#00B14F] transition-colors shadow-sm">
+            <Search size={16} className="text-[#00B14F] shrink-0" />
+            <input
+              type="text"
+              value={searchMex}
+              onChange={(e) => { setSearchMex(e.target.value); setIsDropdownOpen(true); }}
+              onFocus={() => setIsDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+              placeholder="Cari Nama Toko / ID Merchant..."
+              className="text-xs sm:text-sm font-black text-slate-800 bg-transparent outline-none w-full truncate"
+            />
+            {searchMex && (
+              <X size={14} className="cursor-pointer text-slate-400 hover:text-red-500" onClick={() => { setSearchMex(''); setIsDropdownOpen(true); }} />
+            )}
+          </div>
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 shadow-2xl rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map(m => (
+                  <div
+                    key={m.id}
+                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-xs sm:text-sm font-bold text-slate-700 border-b border-slate-50 last:border-0"
+                    onClick={() => {
+                      setSelectedMex(m.fullName);
+                      setSearchMex(m.name);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    {m.name} <span className="text-[10px] font-normal text-slate-400 block mt-0.5">{m.id}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="px-4 py-4 text-xs text-slate-500 font-medium italic text-center">Data tidak ditemukan...</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {profile ? (
         <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+
+          {/* ======================================================== */}
+          {/* 2. PROFIL & PROMO AKTIF (DIPINDAH KE ATAS)                 */}
+          {/* ======================================================== */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mx-2 sm:mx-0">
+            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col">
+              <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3"><UserCircle size={18} className="text-[#00B14F]" /><h4 className="font-black text-slate-900 text-sm">Profil Akun Partner</h4></div>
+              <div className="space-y-3 text-xs flex-1 flex flex-col justify-center">
+                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-400 font-bold">Nama Outlet:</span><span className="font-black text-slate-800 text-right line-clamp-1">{profile.cleanName}</span></div>
+                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-400 font-bold">Merchant ID:</span><span className="font-mono font-bold text-slate-700">{profile.mexId}</span></div>
+                <div className="flex justify-between py-1"><span className="text-slate-400 font-bold">Manager:</span><span className="font-bold text-emerald-600">{profile.amName}</span></div>
+              </div>
+            </div>
+            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 md:col-span-2 flex flex-col">
+              <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3"><Award size={18} className="text-[#FF7A00]" /><h4 className="font-black text-slate-900 text-sm">Program Promosi Aktif</h4></div>
+              <div className="flex flex-wrap gap-2 flex-1 items-center">
+                {profile.campaignRaw && profile.campaignRaw !== '-' && profile.campaignRaw !== '0' ? (
+                  profile.campaignRaw.split('|').filter(c => c && c.trim() !== '').map((c, i) => <span key={i} className="px-3 py-2 bg-[#E5F7ED] text-[#00B14F] border border-[#00B14F]/10 text-xs font-black rounded-xl">✅ {c.trim()}</span>)
+                ) : <span className="text-slate-400 italic text-xs">Tidak ada program promo aktif dari dashboard utama.</span>}
+              </div>
+            </div>
+          </div>
           
-          {/* SUMMARY SUMMARY HIGHLIGHT CARDS */}
+          {/* ======================================================== */}
+          {/* 3. CORE HIGHLIGHT CARDS                                    */}
+          {/* ======================================================== */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mx-2 sm:mx-0">
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
               <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl shrink-0"><ShoppingCart size={18} /></div>
@@ -246,15 +324,13 @@ export default function MerchantPresentation() {
             </div>
           </div>
 
-          {/* GRID ROW: GRAFIK FINANSIAL UTAMA & STACKED MERCH INVESTMENT BREAKDOWN */}
+          {/* ======================================================== */}
+          {/* 4. GRAFIK FINANSIAL & ALOKASI POTONGAN                     */}
+          {/* ======================================================== */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
-            
-            {/* GRAFIK 1: GROSS vs NET FINANSIAL */}
+            {/* GRAFIK GROSS vs NET */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
-              <div className="mb-6 border-b border-slate-100 pb-3 text-center">
-                <h4 className="text-sm sm:text-base font-black text-slate-900">Struktur Omset Bersih vs Investasi</h4>
-                <p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Komparasi Penjualan Bersih (Net Sales) vs Total Potongan Investasi Toko</p>
-              </div>
+              <div className="mb-6 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Struktur Omset Bersih vs Investasi</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Komparasi Penjualan Bersih (Net Sales) vs Total Potongan Investasi Toko</p></div>
               {profile.historyChart && profile.historyChart.length > 0 ? (
                 <div className="h-[250px] sm:h-[300px] w-full flex justify-center select-none">
                   <ResponsiveContainer width="100%" height="100%">
@@ -266,19 +342,16 @@ export default function MerchantPresentation() {
                       <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '15px' }} />
                       <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 4, 4]} barSize={32} />
                       <Bar dataKey="merchantInvestment" name="Total Investment" stackId="a" fill="#E5E7EB" radius={[4, 4, 0, 0]} barSize={32} />
-                      <Line type="monotone" dataKey="basketSize" name="Gross Sales" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4, fill: '#3B82F6' }} />
+                      <Line type="monotone" dataKey="basketSize" name="Gross Sales" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
-              ) : <div className="p-8 text-center text-slate-400 italic text-xs">Data tidak tersedia.</div>}
+              ) : <div className="p-8 text-center text-slate-400 italic text-xs">Data histori tidak tersedia.</div>}
             </div>
 
-            {/* ⚡ GRAFIK 2: STACKED BREAKDOWN MERCHANT INVESTMENT (BARU SANGAT DETAIL) */}
+            {/* BREAKDOWN MERCHANT INVESTMENT */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
-              <div className="mb-6 border-b border-slate-100 pb-3 text-center">
-                <h4 className="text-sm sm:text-base font-black text-slate-900">Alokasi Rincian Investasi Toko</h4>
-                <p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Struktur pembagian potongan (Komisi, Skema Promo Resto, dan Promosi GrabAds)</p>
-              </div>
+              <div className="mb-6 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Alokasi Rincian Investasi Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Struktur pembagian potongan (Komisi, Skema Promo Resto, dan GrabAds)</p></div>
               {profile.historyChart && profile.historyChart.length > 0 ? (
                 <div className="h-[250px] sm:h-[300px] w-full flex justify-center select-none">
                   <ResponsiveContainer width="100%" height="100%">
@@ -288,72 +361,67 @@ export default function MerchantPresentation() {
                       <YAxis hide />
                       <Tooltip content={<InvestmentTooltip />} cursor={{ fill: 'transparent' }} />
                       <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingBottom: '15px' }} iconType="circle" />
-                      
-                      {/* Tumpukan Alokasi Dana */}
-                      <Bar dataKey="baseComm" name="Base Comm" stackId="inv" fill="#94A3B8" />
-                      <Bar dataKey="mfp" name="Promo Patungan (MFP)" stackId="inv" fill="#A855F7" />
-                      <Bar dataKey="mfc" name="Diskon Coret (MFC)" stackId="inv" fill="#EC4899" />
-                      <Bar dataKey="totalAds" name="Iklan (GrabAds)" stackId="inv" fill="#F97316" />
-                      <Bar dataKey="totalCpoGms" name="CPO & GMS" stackId="inv" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="baseComm" name="Base Comm" stackId="inv" fill="#94A3B8" barSize={32} />
+                      <Bar dataKey="mfp" name="Promo Patungan (MFP)" stackId="inv" fill="#A855F7" barSize={32} />
+                      <Bar dataKey="mfc" name="Diskon Coret (MFC)" stackId="inv" fill="#EC4899" barSize={32} />
+                      <Bar dataKey="totalAds" name="Iklan (GrabAds)" stackId="inv" fill="#F97316" barSize={32} />
+                      <Bar dataKey="totalCpoGms" name="CPO & GMS" stackId="inv" fill="#3B82F6" barSize={32} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              ) : <div className="p-8 text-center text-slate-400 italic text-xs">Data tidak tersedia.</div>}
+              ) : <div className="p-8 text-center text-slate-400 italic text-xs">Data histori tidak tersedia.</div>}
             </div>
-
           </div>
 
-          {/* SISA ROW GRAFIK OPERASIONAL & KORELASI PROMO */}
+          {/* ======================================================== */}
+          {/* 5. GRAFIK OPERASIONAL & AOV DUAL LINE                      */}
+          {/* ======================================================== */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
             
-            {/* CHART EFISIENSI ORDER */}
+            {/* STACKED TOTAL VS COMPLETED ORDER (Diperbesar bar nya) */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
-              <div className="mb-4 border-b border-slate-100 pb-3 text-center">
-                <h4 className="text-sm sm:text-base font-black text-slate-900">Efisiensi Order Bulanan</h4>
-                <p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Perbandingan Total Order Masuk vs Pesanan Selesai (Completed)</p>
-              </div>
+              <div className="mb-4 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Efisiensi Order Bulanan</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Perbandingan Pesanan Selesai (Completed) vs Batal/Gagal</p></div>
               <div className="h-[230px] sm:h-[260px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={profile.historyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={4}>
+                  <BarChart data={profile.historyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} />
                     <YAxis hide />
                     <Tooltip content={<OrderTooltip />} cursor={{ fill: 'transparent' }} />
                     <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                    <Bar dataKey="totalOrders" name="Total Orders" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={14} />
-                    <Bar dataKey="completedOrders" name="Completed Orders" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={14} />
+                    {/* Tumpukan Order dengan ukuran Bar 32 */}
+                    <Bar dataKey="completedOrders" name="Selesai (Completed)" stackId="order" fill="#00B14F" barSize={32} />
+                    <Bar dataKey="uncompletedOrders" name="Batal / Gagal" stackId="order" fill="#EF4444" barSize={32} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* CHART KORELASI AOV */}
+            {/* DUAL LINE CHART AOV & PROMO */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
-              <div className="mb-4 border-b border-slate-100 pb-3 text-center">
-                <h4 className="text-sm sm:text-base font-black text-slate-900">Korelasi AOV & Rasio Promo</h4>
-                <p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Melihat pengaruh partisipasi promo terhadap nilai rata-rata belanja tiket (AOV)</p>
-              </div>
+              <div className="mb-4 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Korelasi AOV & Rasio Promo</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Pengaruh tingkat pesanan promo terhadap tren harga nilai tiket (AOV)</p></div>
               <div className="h-[230px] sm:h-[260px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={profile.historyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <ComposedChart data={profile.historyChart} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} />
-                    <YAxis hide />
+                    {/* Dua Y-Axis agar garis persentase (0-100) tidak tenggelam oleh nilai AOV (puluhan ribu) */}
+                    <YAxis yAxisId="left" hide domain={['auto', 'auto']} />
+                    <YAxis yAxisId="right" orientation="right" hide domain={[0, 100]} />
                     <Tooltip content={<AovTooltip />} cursor={{ fill: 'transparent' }} />
                     <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                    <Bar dataKey="aov" name="AOV (Rupiah)" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={24} />
-                    <Line type="monotone" dataKey="promoUsageRate" name="Promo Usage (%)" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} />
+                    
+                    {/* Keduanya diubah menjadi Line Chart */}
+                    <Line yAxisId="left" type="monotone" dataKey="aov" name="AOV (Rupiah)" stroke="#FF7A00" strokeWidth={3} dot={{ fill: '#FF7A00', r: 4, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="promoUsageRate" name="Promo Usage (%)" stroke="#10B981" strokeWidth={3} strokeDasharray="5 5" dot={{ fill: '#10B981', r: 4 }} activeDot={{ r: 6 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* CHART ONLINE HOURS */}
+            {/* ONLINE HOURS CHART */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 lg:col-span-2">
-              <div className="mb-4 border-b border-slate-100 pb-3 text-center">
-                <h4 className="text-sm sm:text-base font-black text-slate-900">Konsistensi Jam Operasional Toko</h4>
-                <p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Total durasi jam buka toko aktif (Online Hours) secara akumulatif per bulan</p>
-              </div>
+              <div className="mb-4 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Konsistensi Jam Operasional Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Total durasi jam buka toko aktif (Online Hours) secara akumulatif per bulan</p></div>
               <div className="h-[200px] sm:h-[240px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={profile.historyChart} margin={{ top: 20, right: 20, left: -20, bottom: 0 }}>
@@ -369,26 +437,6 @@ export default function MerchantPresentation() {
               </div>
             </div>
 
-          </div>
-
-          {/* FOOTER METADATA */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mx-2 sm:mx-0">
-            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col">
-              <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3"><UserCircle size={18} className="text-[#00B14F]" /><h4 className="font-black text-slate-900 text-sm">Profil Akun Partner</h4></div>
-              <div className="space-y-3 text-xs flex-1 flex flex-col justify-center">
-                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-400 font-bold">Nama Outlet:</span><span className="font-black text-slate-800 text-right">{profile.cleanName}</span></div>
-                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-400 font-bold">Merchant ID:</span><span className="font-mono font-bold text-slate-700">{profile.mexId}</span></div>
-                <div className="flex justify-between py-1"><span className="text-slate-400 font-bold">Manager:</span><span className="font-bold text-emerald-600">{profile.amName}</span></div>
-              </div>
-            </div>
-            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 md:col-span-2 flex flex-col">
-              <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3"><Award size={18} className="text-[#FF7A00]" /><h4 className="font-black text-slate-900 text-sm">Program Promosi Aktif</h4></div>
-              <div className="flex flex-wrap gap-2 flex-1 items-center">
-                {profile.campaignRaw && profile.campaignRaw !== '-' && profile.campaignRaw !== '0' ? (
-                  profile.campaignRaw.split('|').filter(c => c && c.trim() !== '').map((c, i) => <span key={i} className="px-3 py-2 bg-[#E5F7ED] text-[#00B14F] border border-[#00B14F]/10 text-xs font-black rounded-xl">✅ {c.trim()}</span>)
-                ) : <span className="text-slate-400 italic text-xs">Tidak ada program promo aktif dari dashboard utama.</span>}
-              </div>
-            </div>
           </div>
           
         </div>
