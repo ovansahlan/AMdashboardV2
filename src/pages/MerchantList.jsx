@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useContext } from 'react';
+import React, { useMemo, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSheetData } from '../hooks/useSheetData';
 import { GlobalFilterContext } from '../context/GlobalContext';
-import { Loader2, AlertCircle, Search, Filter, ArrowUpDown, ChevronUp, ChevronDown, Store, UserCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Search, Filter, ArrowUpDown, ChevronUp, ChevronDown, Store, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
@@ -41,6 +41,9 @@ const getShortAmName = (fullName) => {
   return fullName.split(' ')[0];
 };
 
+// ⚡ ENGINE PAGINASI: Tentukan batas per halaman
+const ITEMS_PER_PAGE = 50;
+
 export default function MerchantList() {
   const { data, isLoading, error } = useSheetData('getDashboard');
   const navigate = useNavigate();
@@ -49,6 +52,14 @@ export default function MerchantList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'basketSize', direction: 'desc' });
+  
+  // ⚡ STATE PAGINASI
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // ⚡ RESET HALAMAN: Kembali ke halaman 1 jika filter/pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, campaignFilter, selectedAm, sortConfig]);
 
   const amList = useMemo(() => {
     if (!data || !Array.isArray(data) || data.length === 0) return ['All'];
@@ -80,7 +91,6 @@ export default function MerchantList() {
       rawList.push({
         id: index,
         mexId: mexId.toString().trim(),
-        // ⚡ PERBAIKAN: Menghapus split('-')[0] agar nama area / cabang tetap tampil utuh
         mexName: mexName.toString().trim(), 
         amName: rawAmName,
         shortAmName: shortAmName, 
@@ -113,6 +123,10 @@ export default function MerchantList() {
     return filtered;
   }, [merchants, searchTerm, campaignFilter, selectedAm, sortConfig]);
 
+  // ⚡ HITUNG DATA PAGINASI
+  const totalPages = Math.ceil(processedData.length / ITEMS_PER_PAGE);
+  const paginatedData = processedData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   const requestSort = (key) => {
     let direction = 'desc'; 
     if (sortConfig.key === key && sortConfig.direction === 'desc') direction = 'asc'; 
@@ -132,11 +146,12 @@ export default function MerchantList() {
   };
 
   if (isLoading) return <div className="flex justify-center min-h-[70vh] items-center"><Loader2 className="animate-spin text-[#00B14F]" size={36} /></div>;
-  if (error || !merchants.length) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-sm">Data kosong/Error: {error}</div>;
+  if (error || !merchants.length) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-sm">Data kosong/Error: {error?.toString()}</div>;
 
   return (
     <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0">
       
+      {/* HEADER & GLOBAL AM FILTER */}
       <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0">
@@ -157,6 +172,7 @@ export default function MerchantList() {
         </div>
       </div>
 
+      {/* SEARCH & FILTER LOKAL */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 bg-white p-2.5 sm:p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex-1 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-50 rounded-xl border border-slate-100 focus-within:border-[#00B14F] transition-colors">
           <Search size={16} className="text-slate-400 shrink-0" />
@@ -179,8 +195,9 @@ export default function MerchantList() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto pb-2">
+      {/* TABEL MERCHANT & PAGINATION */}
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+        <div className="overflow-x-auto pb-2 flex-1">
           <table className="w-full text-left border-collapse whitespace-nowrap min-w-max md:min-w-[850px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500">
@@ -203,29 +220,72 @@ export default function MerchantList() {
               </tr>
             </thead>
             <tbody className="text-xs sm:text-sm divide-y divide-slate-100">
-              {processedData.map((merchant, index) => (
-                <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                  <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
-                  <td className="px-2.5 py-3 sm:p-4 max-w-[240px] sm:max-w-[320px] lg:max-w-[400px]">
-                    <div className="font-black text-slate-800 text-[13px] sm:text-sm truncate" title={merchant.mexName}>
-                      {merchant.mexName}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 overflow-hidden">
-                      <span className="font-mono text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 truncate shrink-0">{merchant.mexId}</span>
-                      <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold shrink-0">
-                        <UserCircle size={10} className="sm:w-3 sm:h-3"/> {merchant.shortAmName}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-2.5 py-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
-                  <td className="px-2.5 py-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                  <td className="px-2.5 py-3 sm:p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                  <td className="px-2.5 py-3 sm:p-4"><span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>{merchant.campaignStatus}</span></td>
-                </tr>
-              ))}
+              {paginatedData.length === 0 ? (
+                <tr><td colSpan="6" className="p-6 text-center text-slate-500 font-medium text-xs">Tidak ada data.</td></tr>
+              ) : (
+                // ⚡ PERBAIKAN: Gunakan data yang sudah di-slice (paginatedData)
+                paginatedData.map((merchant, index) => {
+                  // Hitung nomor urut aktual berdasarkan halaman saat ini
+                  const actualIndex = (currentPage - 1) * ITEMS_PER_PAGE + index + 1;
+                  
+                  return (
+                    <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
+                      <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{actualIndex}</td>
+                      <td className="px-2.5 py-3 sm:p-4 max-w-[240px] sm:max-w-[320px] lg:max-w-[400px]">
+                        <div className="font-black text-slate-800 text-[13px] sm:text-sm truncate" title={merchant.mexName}>
+                          {merchant.mexName}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 overflow-hidden">
+                          <span className="font-mono text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 truncate shrink-0">{merchant.mexId}</span>
+                          <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold shrink-0">
+                            <UserCircle size={10} className="sm:w-3 sm:h-3"/> {merchant.shortAmName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-2.5 py-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
+                      <td className="px-2.5 py-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                      <td className="px-2.5 py-3 sm:p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                      <td className="px-2.5 py-3 sm:p-4"><span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>{merchant.campaignStatus}</span></td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
+        
+        {/* ⚡ KONTROL PAGINASI */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 sm:p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div className="hidden sm:block">
+              <p className="text-xs text-slate-500 font-medium">
+                Menampilkan <span className="font-bold text-slate-700">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> hingga <span className="font-bold text-slate-700">{Math.min(currentPage * ITEMS_PER_PAGE, processedData.length)}</span> dari <span className="font-black text-[#00B14F]">{processedData.length}</span> outlet
+              </p>
+            </div>
+            
+            <div className="flex flex-1 justify-between sm:justify-end gap-2 sm:gap-3 w-full">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                <ChevronLeft size={14} className="mr-1" /> Prev
+              </button>
+              
+              <div className="flex items-center px-2 text-xs font-bold text-slate-500 sm:hidden">
+                Hal {currentPage} / {totalPages}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                Next <ChevronRight size={14} className="ml-1" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
