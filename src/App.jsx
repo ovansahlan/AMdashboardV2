@@ -1,15 +1,18 @@
-import React, { useState, useMemo, useCallback, createContext, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Store, Megaphone, Target, ArrowLeft, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, Store, Megaphone, Target, ArrowLeft, Menu, X, MonitorPlay } from 'lucide-react'; // ⚡ Mengganti Presentation dengan MonitorPlay
 
+// Import Global Provider
+import { GlobalProvider, GlobalFilterContext } from './context/GlobalContext';
+
+// Import Semua Halaman
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import MerchantList from './pages/MerchantList';
 import MerchantDetail from './pages/MerchantDetail';
 import GMSTracker from './pages/GMSTracker';
 import AdsTracker from './pages/AdsTracker';
-export const TimeMachineContext = createContext();
-export const GlobalFilterContext = createContext();
+import MerchantPresentation from './pages/MerchantPresentation';
 
 const OKRTracker = () => <div className="p-6 text-slate-800 font-medium">OKR Tracker View</div>;
 
@@ -17,6 +20,7 @@ const SidebarContent = ({ onClose }) => {
   const menuItems = [
     { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
     { path: '/merchant', icon: <Users size={20} />, label: 'Merchant List' },
+    { path: '/present', icon: <MonitorPlay size={20} />, label: 'Pitching Mode' }, // ⚡ Aman dari browser global conflict
     { path: '/gms', icon: <Megaphone size={20} />, label: 'Campaign Tracker' },
     { path: '/ads', icon: <Target size={20} />, label: 'Ads Tracker' },
     { path: '/okr', icon: <Target size={20} />, label: 'OKR Target' },
@@ -73,8 +77,6 @@ const AppLayout = () => {
 
   return (
     <div className="flex h-screen bg-[#F7F9FA] selection:bg-[#00B14F]/20 selection:text-[#00B14F] overflow-hidden relative">
-      
-      {/* ⚡ SUNTIKAN FONT INTER GLOBAL */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { font-family: 'Inter', sans-serif !important; }
@@ -92,7 +94,7 @@ const AppLayout = () => {
             <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
           )}
           <aside className={`fixed inset-y-0 left-0 w-[280px] bg-white z-50 md:hidden transform transition-transform duration-300 ease-in-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-            <SidebarContent onClose={() => setIsMobileMenuOpen(false)} />
+            <SidebarContent onClose={() => {}} />
           </aside>
         </>
       )}
@@ -117,12 +119,13 @@ const AppLayout = () => {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/gms" element={<GMSTracker />} />
               <Route path="/merchant" element={<MerchantList />} />
+              <Route path="/present" element={<MerchantPresentation />} />
               <Route path="/merchant/:id" element={<MerchantDetail />} />
+              <Route path="/gms" element={<GMSTracker />} />
+              <Route path="/ads" element={<AdsTracker />} />
               <Route path="/okr" element={<OKRTracker />} />
               <Route path="*" element={<Navigate to="/" replace />} />
-              <Route path="/ads" element={<AdsTracker />} />
             </Routes>
           </div>
         </main>
@@ -132,21 +135,11 @@ const AppLayout = () => {
 };
 
 export default function App() {
-  const [activePeriod, setActivePeriod] = useState('current');
-  const [selectedAm, setSelectedAm] = useState('All'); 
-
-  const handlePeriodChange = useCallback((period) => setActivePeriod(period), []);
-
-  const timeMachineValue = useMemo(() => ({ activePeriod, handlePeriodChange }), [activePeriod, handlePeriodChange]);
-  const globalFilterValue = useMemo(() => ({ selectedAm, setSelectedAm }), [selectedAm, setSelectedAm]);
-
   return (
-    <TimeMachineContext.Provider value={timeMachineValue}>
-      <GlobalFilterContext.Provider value={globalFilterValue}>
-        <Router>
-          <AppLayout />
-        </Router>
-      </GlobalFilterContext.Provider>
-    </TimeMachineContext.Provider>
+    <GlobalProvider>
+      <Router>
+        <AppLayout />
+      </Router>
+    </GlobalProvider>
   );
 }

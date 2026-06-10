@@ -8,16 +8,6 @@ const createMockDatabase = () => {
     { name: 'The Home Made Food - Gadog', am: 'Saepul Hikam', sales: '76,841,222', salesLM: '85,000,000', rr: '70,000,000', investment: '25,000,000', ads: '0', adsLM: '500,000', pts: '0.5', mcaStatus: 'disbursed', mcaDate: '19-May-26', mcaAmt: '30,000,000', campaign: 'Local Custom/MFC Only' },
     { name: '1990 COFFEENERY - Solokpandan', am: 'Dadan Nurdiansyah', sales: '42,612,812', salesLM: '30,000,000', rr: '45,000,000', investment: '8,000,000', ads: '1,200,000', adsLM: '800,000', pts: '2.0', mcaStatus: 'pending', mcaDate: '', mcaAmt: '0', campaign: 'GMS Booster | Diskon Ongkir' },
     { name: 'Pare Cianjur - Bojong', am: 'Saepul Hikam', sales: '48,254,000', salesLM: '48,000,000', rr: '48,500,000', investment: '18,000,000', ads: '850,000', adsLM: '850,000', pts: '3.0', mcaStatus: 'disbursed', mcaDate: '20-May-26', mcaAmt: '12,000,000', campaign: 'GMS Cuan | Local Custom/MFC' },
-    { name: 'Seblak Jeletot - Tarogong', am: 'Saepul Hikam', sales: '35,000,000', salesLM: '20,000,000', rr: '38,000,000', investment: '5,000,000', ads: '300,000', adsLM: '100,000', pts: '1.0', mcaStatus: '', mcaDate: '', mcaAmt: '0', campaign: '-no campaign' },
-    { name: 'Kopi Kenangan - Cipanas', am: 'Rizal', sales: '120,500,000', salesLM: '110,000,000', rr: '125,000,000', investment: '30,000,000', ads: '5,000,000', adsLM: '4,500,000', pts: '5.0', mcaStatus: 'disbursed', mcaDate: '05-May-26', mcaAmt: '50,000,000', campaign: 'GMS Booster | WeekendFest' },
-    { name: 'Martabak Manis Legit - Pacet', am: 'Rizal', sales: '55,400,000', salesLM: '60,000,000', rr: '52,000,000', investment: '12,000,000', ads: '1,000,000', adsLM: '1,500,000', pts: '1.5', mcaStatus: '', mcaDate: '', mcaAmt: '0', campaign: 'GMS Cuan' },
-    { name: 'Sate Maranggi Sari Asih', am: 'Dadan Nurdiansyah', sales: '95,000,000', salesLM: '90,000,000', rr: '98,000,000', investment: '22,000,000', ads: '3,200,000', adsLM: '3,000,000', pts: '3.5', mcaStatus: 'disbursed', mcaDate: '01-May-26', mcaAmt: '20,000,000', campaign: 'Local Custom/MFC Only' },
-    { name: 'Mie Gacoan - Suci', am: 'Tia', sales: '210,000,000', salesLM: '200,000,000', rr: '215,000,000', investment: '40,000,000', ads: '8,000,000', adsLM: '7,500,000', pts: '4.0', mcaStatus: 'disbursed', mcaDate: '10-May-26', mcaAmt: '100,000,000', campaign: 'GMS Booster | Local Custom' },
-    { name: 'Ayam Geprek Bensu', am: 'Tia', sales: '65,000,000', salesLM: '75,000,000', rr: '60,000,000', investment: '14,000,000', ads: '1,500,000', adsLM: '2,000,000', pts: '2.0', mcaStatus: '', mcaDate: '', mcaAmt: '0', campaign: 'GMS Booster' },
-    { name: 'Burger Bangor - Sindanglaya', am: 'Rizal', sales: '45,000,000', salesLM: '40,000,000', rr: '48,000,000', investment: '10,000,000', ads: '900,000', adsLM: '800,000', pts: '1.0', mcaStatus: 'pending', mcaDate: '', mcaAmt: '0', campaign: 'Local Custom/MFC Only' },
-    { name: 'Chatime - Citimall', am: 'Saepul Hikam', sales: '88,000,000', salesLM: '88,500,000', rr: '88,000,000', investment: '18,000,000', ads: '2,000,000', adsLM: '2,000,000', pts: '2.5', mcaStatus: 'disbursed', mcaDate: '15-May-26', mcaAmt: '25,000,000', campaign: 'GMS Booster' },
-    { name: 'Mixue - Karangtengah', am: 'Tia', sales: '150,000,000', salesLM: '120,000,000', rr: '160,000,000', investment: '25,000,000', ads: '4,000,000', adsLM: '3,000,000', pts: '3.0', mcaStatus: 'disbursed', mcaDate: '20-May-26', mcaAmt: '40,000,000', campaign: 'GMS Cuan | Diskon Ongkir' },
-    { name: 'Nasi Goreng Mafia', am: 'Dadan Nurdiansyah', sales: '28,000,000', salesLM: '35,000,000', rr: '25,000,000', investment: '5,000,000', ads: '200,000', adsLM: '500,000', pts: '0', mcaStatus: '', mcaDate: '', mcaAmt: '0', campaign: '-no campaign' },
   ];
 
   const formattedMerchants = rawMerchants.map(m => {
@@ -30,7 +20,7 @@ const createMockDatabase = () => {
     row[23] = m.investment;    
     row[30] = m.adsLM;         
     row[31] = m.ads;           
-    row[37] = m.mcaAmt;        // ⚡ Limit MCA
+    row[37] = m.mcaAmt;        
     row[39] = m.mcaStatus;     
     row[40] = m.mcaDate;       
     row[41] = m.mcaAmt;        
@@ -45,91 +35,91 @@ const createMockDatabase = () => {
   ];
 };
 
-// ==========================================
-// ⚡ GLOBAL MEMORY CACHE
-// Mengunci data di memori agar perpindahan halaman menjadi 0 detik
-// ==========================================
+const createMockHistoris = () => {
+  return [
+    ['Mex Name', 'Jan Basket', 'Feb Basket', 'Mar Basket', 'Apr Basket', 'May Basket', 'Jun Basket', 'Jan Orders', 'Feb Orders', 'Mar Orders', 'Apr Orders', 'May Orders', 'Jun Orders', 'Promo Usage MTD', 'AOV'],
+    ['Ayam Goreng Sari Sunda - Pamoyanan', '50', '55', '62', '68', '70', '85.5', '1200', '1350', '1500', '1620', '1700', '2100', '45%', '40700'],
+    ['RM Nasi Kapau Uni Yen - Sawah Gede', '48', '50', '52', '58', '62', '60.3', '980', '1020', '1100', '1150', '1250', '1210', '30%', '49800'],
+    ['The Home Made Food - Gadog', '70', '72', '75', '80', '85', '76.8', '1400', '1450', '1510', '1600', '1720', '1550', '15%', '49500']
+  ];
+};
+
+const createMockDaily = () => {
+  const dates = Array.from({length: 15}, (_, i) => `2026-06-${String(i+1).padStart(2, '0')}`);
+  const baseData = [
+    { name: 'Ayam Goreng Sari Sunda - Pamoyanan', baseOrders: 60, baseAds: 80000 },
+    { name: 'RM Nasi Kapau Uni Yen - Sawah Gede', baseOrders: 40, baseAds: 25000 },
+    { name: 'The Home Made Food - Gadog', baseOrders: 50, baseAds: 0 }
+  ];
+  const rows = [['Tanggal', 'Mex Name', 'Completed Orders', 'Daily Ads Spent']];
+  dates.forEach(date => {
+    baseData.forEach(m => {
+      const randomVariance = Math.floor(Math.random() * 20) - 10;
+      rows.push([date, m.name, String(m.baseOrders + randomVariance), String(m.baseAds > 0 ? m.baseAds + (randomVariance * 1000) : 0)]);
+    });
+  });
+  return rows;
+};
+
+// Caching Memory Global
 const globalCache = {};
 const globalPromises = {}; 
 
 export function useSheetData(endpoint = 'getDashboard') {
-  // Jika cache sudah ada, nilai default state langsung terisi (Bypass Loading)
   const [data, setData] = useState(globalCache[endpoint] || null);
   const [isLoading, setIsLoading] = useState(!globalCache[endpoint]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // 1. CACHE HIT: Data sudah ada di memori
     if (globalCache[endpoint]) {
       setData(globalCache[endpoint]);
       setIsLoading(false);
       return;
     }
 
-    // 2. PROMISE SHARING: Nebeng request jika komponen lain sedang menarik data yang sama
-    if (globalPromises[endpoint]) {
-      setIsLoading(true);
-      globalPromises[endpoint]
-        .then((resData) => {
-          setData(resData);
-          setIsLoading(false);
-        })
-        .catch((err) => {
-          if (err.name !== 'AbortError') setError(err.message);
-          setIsLoading(false);
-        });
-      return;
-    }
-
-    // 3. FETCH BARU
-    setIsLoading(true);
-    const abortController = new AbortController();
-
-    const fetchPromise = async () => {
+    const fetchData = async () => {
       const isLocalDev = import.meta.env.DEV;
 
-      // SKENARIO A: LOKAL (MOCK DATA)
       if (isLocalDev) {
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            const mockData = createMockDatabase();
-            globalCache[endpoint] = mockData; // Simpan ke cache global
-            resolve(mockData);
-          }, 500); 
-        });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        if (endpoint === 'getDashboard') return createMockDatabase();
+        if (endpoint === 'getHistoris') return createMockHistoris();
+        if (endpoint === 'getRawDaily') return createMockDaily();
+        return [];
       }
 
-      // SKENARIO B: PRODUCTION (VERCEL API)
-      const response = await fetch(`/api/${endpoint}?t=${Date.now()}`, {
-        signal: abortController.signal
-      });
-      
-      if (!response.ok) throw new Error('Gagal menarik data dari API Vercel');
-      
+      const response = await fetch(`/api/${endpoint}?t=${Date.now()}`);
+      if (!response.ok) throw new Error(`Gagal menarik data ${endpoint}`);
       const result = await response.json();
-      const finalData = result.data || result;
-      
-      globalCache[endpoint] = finalData; // Simpan ke cache global
-      return finalData;
+      return result.data || result;
     };
 
-    // Simpan status fetch ke dalam global promise
-    globalPromises[endpoint] = fetchPromise();
+    // Safe Promise Sharing (Mencegah kerusakan akibat StrictMode Abort)
+    if (!globalPromises[endpoint]) {
+      globalPromises[endpoint] = fetchData()
+        .then((resData) => {
+          globalCache[endpoint] = resData;
+          return resData;
+        })
+        .catch((err) => {
+          delete globalPromises[endpoint]; // Hapus cache promise jika gagal agar bisa coba lagi
+          throw err;
+        });
+    }
 
-    // Eksekusi promise
+    setIsLoading(true);
     globalPromises[endpoint]
       .then((resData) => {
         setData(resData);
-        setIsLoading(false);
+        setError(null);
       })
       .catch((err) => {
-        if (err.name !== 'AbortError') setError(err.message);
+        setError(err.message || 'Gagal memuat data');
+      })
+      .finally(() => {
         setIsLoading(false);
       });
 
-    return () => {
-      abortController.abort();
-    };
   }, [endpoint]);
 
   return { data, isLoading, error };

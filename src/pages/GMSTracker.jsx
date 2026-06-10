@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useContext } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
-import { GlobalFilterContext } from '../App';
+import { GlobalFilterContext } from '../context/GlobalContext'; //  Ganti dengan ini
 import { Loader2, AlertCircle, Search, Filter, Calendar, CheckCircle2, XCircle, ArrowUpDown, ChevronUp, ChevronDown, UserCircle, Megaphone } from 'lucide-react';
 
 // ==========================================

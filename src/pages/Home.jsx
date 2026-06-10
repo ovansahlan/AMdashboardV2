@@ -1,97 +1,88 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Megaphone, Settings, ArrowRight, Store } from 'lucide-react';
+import { LayoutDashboard, MonitorPlay, Users, ArrowRight, Store } from 'lucide-react'; // ⚡ Ganti Presentation dengan MonitorPlay
 
 export default function Home() {
   const navigate = useNavigate();
 
-  // Data Modul Aplikasi (Bisa ditambah seiring bertambahnya fitur)
-  const appModules = [
+  const portals = [
     {
-      title: 'Main Dashboard',
-      description: 'Analisis komprehensif performa Sales, Ads, dan Health Merchant MTD.',
-      icon: <LayoutDashboard size={28} />,
+      title: 'Internal Analytical Dashboard',
+      desc: 'Monitoring pencapaian OKR, pergerakan iklan AM, status kesehatan omset, dan log pencairan dana modal MCA harian.',
+      icon: <LayoutDashboard size={28} className="text-[#00B14F]" />,
       path: '/dashboard',
-      color: 'text-[#00B14F]',
-      bgColor: 'bg-[#E5F7ED]',
-      active: true,
+      badge: 'Internal AM Only',
+      badgeColor: 'bg-[#E5F7ED] text-[#00B14F]'
     },
     {
-      title: 'Merchant Database',
-      description: 'Manajemen data detail toko, riwayat pencairan MCA, dan profil AM.',
-      icon: <Users size={28} />,
+      title: 'Merchant Presentation Deck',
+      desc: 'Mode visualisasi khusus untuk pitching ke pemilik resto. Menampilkan performa omset 6 bulan, AOV, GrabAds harian, dan rasio promo.',
+      icon: <MonitorPlay size={28} className="text-purple-600" />, // ⚡ Diubah ke MonitorPlay
+      path: '/present', 
+      badge: 'Merchant Pitching',
+      badgeColor: 'bg-purple-50 text-purple-600 border border-purple-100'
+    },
+    {
+      title: 'Merchant Master Database',
+      desc: 'Eksplorasi basis data terpadu seluruh outlet aktif, pencarian MEX ID, filter wilayah manajer, dan sisa kuota limit MCA.',
+      icon: <Users size={28} className="text-amber-500" />,
       path: '/merchant',
-      color: 'text-[#FF7A00]',
-      bgColor: 'bg-[#FFF2E5]',
-      active: false, // Set false karena fiturnya belum kita buat
-    },
-    {
-      title: 'Campaign Manager',
-      description: 'Pantau partisipasi GMS Booster, Cuan, dan promo lokal lainnya.',
-      icon: <Megaphone size={28} />,
-      path: '/campaign',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      active: false,
-    },
+      badge: 'Database Master',
+      badgeColor: 'bg-amber-50 text-amber-600'
+    }
   ];
 
   return (
-    <div className="min-h-screen bg-[#F7F9FA] font-sans flex flex-col items-center justify-center p-6">
-      
-      {/* HEADER PORTAL */}
-      <div className="text-center mb-12 animate-fadeIn">
-        <div className="w-20 h-20 bg-[#00B14F] rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-[#00B14F]/20 mb-6">
-          <Store size={40} className="text-white" />
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-          GrabFood <span className="text-[#00B14F]">Portal</span>
-        </h1>
-        <p className="text-slate-500 font-medium mt-3 max-w-md mx-auto">
-          Pusat kendali operasional dan analitik portfolio Merchant. Pilih modul aplikasi di bawah untuk memulai.
-        </p>
-      </div>
-
-      {/* GRID MENU MODUL */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl animate-fadeIn">
-        {appModules.map((module, index) => (
-          <button
-            key={index}
-            onClick={() => module.active ? navigate(module.path) : alert('Fitur ini sedang dalam tahap pengembangan! 🚀')}
-            className={`text-left p-6 rounded-3xl border transition-all duration-300 group relative overflow-hidden ${
-              module.active 
-                ? 'bg-white border-slate-200 hover:border-[#00B14F] shadow-sm hover:shadow-md cursor-pointer' 
-                : 'bg-slate-50 border-slate-100 opacity-70 cursor-not-allowed'
-            }`}
-          >
-            <div className="flex flex-col h-full relative z-10">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110 ${module.bgColor} ${module.color}`}>
-                {module.icon}
-              </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">{module.title}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed mb-6 flex-1">
-                {module.description}
-              </p>
-              
-              <div className="flex items-center gap-2 mt-auto">
-                <span className={`text-sm font-bold ${module.active ? 'text-[#00B14F]' : 'text-slate-400'}`}>
-                  {module.active ? 'Buka Modul' : 'Coming Soon'}
-                </span>
-                {module.active && <ArrowRight size={16} className="text-[#00B14F] transition-transform group-hover:translate-x-1" />}
-              </div>
+    <div className="min-h-screen bg-[#F7F9FA] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 font-sans selection:bg-[#00B14F]/10">
+      <div className="w-full max-w-4xl space-y-6 sm:space-y-8 animate-fadeIn">
+        <div className="text-center space-y-2.5">
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm mb-2">
+            <div className="w-6 h-6 bg-[#00B14F] rounded-lg flex items-center justify-center">
+              <Store size={14} className="text-white" />
             </div>
+            <span className="text-xs font-black text-slate-800 tracking-wide uppercase">GrabFood AM WebPortal</span>
+          </div>
+          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
+            Selamat Datang di Grab<span className="text-[#00B14F]">Metrics</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-lg mx-auto leading-relaxed">
+            Pilih portal tujuan Anda untuk mulai menganalisis performa toko, memantau retensi iklan, atau mempersiapkan materi meeting mitra.
+          </p>
+        </div>
 
-            {/* Efek aksen Grab Green di pojok jika aktif */}
-            {module.active && (
-              <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-[#00B14F]/5 rounded-full transition-transform group-hover:scale-150"></div>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* FOOTER */}
-      <div className="mt-16 text-center text-xs font-semibold text-slate-400">
-        <p>© 2026 GrabMetrics Internal Tools. Secured & Encrypted.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          {portals.map((portal, index) => (
+            <button
+              key={index}
+              onClick={() => navigate(portal.path)}
+              className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.01)] text-left flex flex-col justify-between hover:border-[#00B14F] hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer h-[240px] sm:h-[280px] relative overflow-hidden outline-none"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-2.5 bg-slate-50 rounded-xl group-hover:scale-110 transition-transform">
+                    {portal.icon}
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${portal.badgeColor}`}>
+                    {portal.badge}
+                  </span>
+                </div>
+                <h3 className="font-black text-slate-900 text-sm sm:text-base group-hover:text-[#00B14F] transition-colors line-clamp-1">
+                  {portal.title}
+                </h3>
+                <p className="text-xs text-slate-400 font-medium mt-2 leading-relaxed line-clamp-4 sm:line-clamp-5">
+                  {portal.desc}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 text-xs font-black text-[#00B14F] mt-4 pt-3 border-t border-slate-50 w-full justify-between group-hover:gap-2 transition-all">
+                <span>Masuk Portal</span>
+                <ArrowRight size={14} className="transform group-hover:translate-x-1 transition-transform" />
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="text-center text-[10px] font-bold text-slate-400 tracking-wider uppercase pt-4">
+          GrabMetrics Engine © 2026 • Secure AM Environment
+        </div>
       </div>
     </div>
   );
