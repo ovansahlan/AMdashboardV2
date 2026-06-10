@@ -49,7 +49,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ data: rows });
 
   } catch (error) {
-    console.error('Sheets API Error:', error);
-    return res.status(500).json({ error: 'Failed to fetch data' });
+    console.error('API Error Detail:', error);
+    // ⚡ PERBAIKAN: Tampilkan error ASLI dari Google agar kita tahu penyebabnya
+    return res.status(500).json({ error: error.message || 'Terjadi kesalahan internal API' });
   }
 }

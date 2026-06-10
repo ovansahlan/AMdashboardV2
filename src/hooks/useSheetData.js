@@ -122,10 +122,17 @@ export function useSheetData(endpoint = 'getDashboard') {
         return [];
       }
 
-      const response = await fetch(`/api/${endpoint}?t=${Date.now()}`);
-      if (!response.ok) throw new Error(`Gagal menarik data ${endpoint}`);
-      const result = await response.json();
-      return result.data || result;
+     // MODE PRODUCTION (VERCEL / LIVE)
+     const response = await fetch(`/api/getDashboard?tab=${endpoint}&t=${Date.now()}`);
+      
+     // ⚡ PERBAIKAN: Baca error asli dari Vercel
+     if (!response.ok) {
+       const errorData = await response.json().catch(() => ({}));
+       throw new Error(errorData.error || `Gagal menembak API untuk tab ${endpoint}`);
+     }
+     
+     const result = await response.json();
+     return result.data || result;
     };
 
     // Safe Promise Sharing (Mencegah kerusakan akibat StrictMode Abort)
