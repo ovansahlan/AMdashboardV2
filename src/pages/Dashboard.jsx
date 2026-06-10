@@ -303,7 +303,7 @@ export default function Dashboard() {
       return (
         <div className="bg-white/95 backdrop-blur-md text-slate-800 p-4 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[240px] outline-none flex flex-col gap-3 z-50">
           <div className="border-b border-slate-100 pb-2">
-            <p className="font-black text-slate-900 text-[13px] truncate text-center">{label}</p>
+            <p className="font-black text-slate-900 text-[11px] text-center">{label}</p>
           </div>
           <div className="flex flex-col gap-2.5">
             <div className="flex justify-between items-center text-xs">
