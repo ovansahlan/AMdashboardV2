@@ -48,12 +48,22 @@ const getWhatsAppLink = (phoneStr) => {
   return `https://wa.me/${cleanNumber}`;
 };
 
-// Fungsi Label Chart agar tegak lurus di tengah Bar
+// ⚡ REVISI CHART: Samakan fungsi label agar tegak lurus presisi di tengah Bar sesuai standar dashboard
 const renderCustomBarLabel = (props, color, fontSize) => {
   const { x, y, width, value } = props;
   if (!value) return null;
   return (
-    <text x={x + width / 2} y={y - 6} fill={color} fontSize={fontSize} fontWeight="900" textAnchor="start" dominantBaseline="central" transform={`rotate(-90, ${x + width / 2}, ${y - 6})`}>
+    <text 
+      x={x + width / 2} 
+      y={y - 12} 
+      fill={color} 
+      fontSize={fontSize} 
+      fontWeight="900" 
+      textAnchor="start" 
+      dominantBaseline="central" 
+      transform={`rotate(-90, ${x + width / 2}, ${y - 12})`} 
+      style={{ pointerEvents: 'none', outline: 'none' }}
+    >
       {formatShorthandNum(value)}
     </text>
   );
@@ -93,7 +103,7 @@ export default function MerchantDetail() {
         const adsMTD = parseNumber(row[31]);
         const mcaStatus = row[39] ? row[39].toString().trim() : 'No Data';
         const mcaDate = row[40] ? row[40].toString().trim() : '-';
-        const mcaAmount = parseNumber(row[41]);
+        const mcaAmount = parseNumber(row[37]); // Berpedoman pada Kolom AL (Limit MCA)
         const campaignRaw = row[44] ? row[44].toString().trim() : '';
         const campaignStatus = parseCampaign(campaignRaw);
         const campaignPts = parseNumber(row[45]);
@@ -119,7 +129,7 @@ export default function MerchantDetail() {
   const chartData = useMemo(() => {
     if (!merchant) return [];
     return [{
-      name: 'Performa Sales & Ads',
+      name: 'Komparasi MTD Berjalan',
       salesLM: merchant.bsLM,
       salesMTD: merchant.bsMTD,
       adsLM: merchant.adsLM,
@@ -150,7 +160,7 @@ export default function MerchantDetail() {
   return (
     <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0 animate-fadeIn pb-8">
       
-      {/* --- 1. HEADER NAVIGASI --- */}
+      {/* --- HEADER NAVIGASI --- */}
       <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3 sm:gap-4 mx-2 sm:mx-0">
         <button 
           onClick={() => navigate('/merchant')}
@@ -164,221 +174,228 @@ export default function MerchantDetail() {
         </div>
       </div>
 
-      {/* --- 2. KARTU IDENTITAS HERO --- */}
-      <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 relative overflow-hidden mx-2 sm:mx-0">
-        <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 bg-[#00B14F]/5 rounded-bl-full -mr-10 -mt-10"></div>
+      {/* --- KARTU IDENTITAS HERO (⚡ REVISI FONT SIZING: Diperkecil agar proporsional) --- */}
+      <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 relative overflow-hidden mx-2 sm:mx-0">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#00B14F]/5 rounded-bl-full -mr-10 -mt-10"></div>
         
         <div className="flex items-center gap-4 sm:gap-5 relative z-10 w-full md:w-auto">
-          <div className="w-14 h-14 sm:w-20 sm:h-20 bg-[#00B14F] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-[#00B14F]/20 shrink-0">
-            <Store size={28} className="text-white sm:w-10 sm:h-10" />
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#00B14F] rounded-xl flex items-center justify-center shadow-md shrink-0">
+            <Store size={24} className="text-white sm:w-8 sm:h-8" />
           </div>
-          <div className="space-y-1 sm:space-y-2 flex-1">
+          <div className="space-y-1 flex-1">
             <div className="flex items-center gap-2 group flex-wrap">
-              <h2 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">{merchant.mexName}</h2>
+              {/* Sizing diturunkan dari text-3xl menjadi text-xl sm:text-2xl */}
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">{merchant.mexName}</h2>
               <button 
                 onClick={() => handleCopyShortcut(merchant.mexName, 'name')}
-                className="p-1 sm:p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-[#00B14F] rounded-lg transition-all"
-                title="Salin Nama Merchant"
+                className="p-1 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-[#00B14F] rounded-lg transition-all"
               >
-                {copiedField === 'name' ? <CheckCircle2 size={14} className="text-[#00B14F]" /> : <Copy size={14} />}
+                {copiedField === 'name' ? <CheckCircle2 size={13} className="text-[#00B14F]" /> : <Copy size={13} />}
               </button>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <span className="px-2 sm:px-3 py-1 bg-slate-50 text-slate-600 font-mono font-bold text-[10px] sm:text-xs rounded-md sm:rounded-lg border border-slate-200 flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 bg-slate-50 text-slate-600 font-mono font-bold text-[10px] sm:text-xs rounded-md border border-slate-200 flex items-center gap-1.5">
                 ID: {merchant.mexId}
                 <button onClick={() => handleCopyShortcut(merchant.mexId, 'id')} className="hover:bg-slate-200 text-slate-400 hover:text-[#00B14F] rounded transition-all">
-                  {copiedField === 'id' ? <CheckCircle2 size={12} className="text-[#00B14F]" /> : <Copy size={12} />}
+                  {copiedField === 'id' ? <CheckCircle2 size={11} className="text-[#00B14F]" /> : <Copy size={11} />}
                 </button>
               </span>
-              <span className={`px-2 sm:px-3 py-1 font-bold text-[10px] sm:text-xs rounded-md sm:rounded-lg border ${getCampaignBadge(merchant.campaignStatus)}`}>
+              <span className={`px-2 py-0.5 font-bold text-[10px] sm:text-xs rounded-md border ${getCampaignBadge(merchant.campaignStatus)}`}>
                 {merchant.campaignStatus}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-0.5 sm:gap-1 md:text-right relative z-10 p-3 sm:p-4 bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-100 w-full md:w-auto">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center md:justify-end gap-1.5">
-            <UserCircle size={12} className="sm:w-[14px] sm:h-[14px]" /> Account Manager
+        <div className="flex flex-col gap-0.5 md:text-right relative z-10 p-3 bg-slate-50 rounded-xl border border-slate-100 w-full md:w-auto">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center md:justify-end gap-1.5">
+            <UserCircle size={12} /> Account Manager
           </span>
-          <span className="text-sm sm:text-base font-black text-slate-900">{merchant.amName}</span>
+          <span className="text-sm font-black text-slate-900">{merchant.amName}</span>
         </div>
       </div>
 
-      {/* --- 3. GRID 4 KPI --- */}
+      {/* --- GRID 4 KPI CARDS --- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-2 sm:px-0">
-        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3 sm:gap-4">
-          <div className="p-2 sm:p-3 bg-[#E5F7ED] rounded-xl sm:rounded-2xl text-[#00B14F]"><ShoppingCart size={20} className="sm:w-6 sm:h-6" /></div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+          <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl"><ShoppingCart size={18} /></div>
           <div>
-            <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Basket MTD</p>
-            <p className="text-sm sm:text-xl font-black text-slate-900">{formatRupiah(merchant.bsMTD)}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Basket MTD</p>
+            <p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.bsMTD)}</p>
           </div>
         </div>
-        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3 sm:gap-4">
-          <div className="p-2 sm:p-3 bg-[#FFF2E5] rounded-xl sm:rounded-2xl text-[#FF7A00]"><Megaphone size={20} className="sm:w-6 sm:h-6" /></div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+          <div className="p-2.5 bg-[#FFF2E5] text-[#FF7A00] rounded-xl"><Megaphone size={18} /></div>
           <div>
-            <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Ads MTD</p>
-            <p className="text-sm sm:text-xl font-black text-slate-900">{formatRupiah(merchant.adsMTD)}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Ads MTD</p>
+            <p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.adsMTD)}</p>
           </div>
         </div>
-        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3 sm:gap-4">
-          <div className="p-2 sm:p-3 bg-[#E5F7ED] rounded-xl sm:rounded-2xl text-[#00B14F]"><Coins size={20} className="sm:w-6 sm:h-6" /></div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+          <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl"><Coins size={18} /></div>
           <div>
-            <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Invest MTD</p>
-            <p className="text-sm sm:text-xl font-black text-slate-900">{formatRupiah(merchant.invMTD)}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Invest MTD</p>
+            <p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.invMTD)}</p>
           </div>
         </div>
-        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3 sm:gap-4">
-          <div className="p-2 sm:p-3 bg-[#E5F7ED] rounded-xl sm:rounded-2xl text-[#00B14F]"><Award size={20} className="sm:w-6 sm:h-6" /></div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+          <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl"><Award size={18} /></div>
           <div>
-            <p className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Camp Points</p>
-            <p className="text-sm sm:text-xl font-black text-slate-900">{merchant.campaignPts}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Camp Points</p>
+            <p className="text-sm sm:text-base font-black text-slate-900">{merchant.campaignPts}</p>
           </div>
         </div>
       </div>
 
-      {/* --- 4. GRAFIK PERBANDINGAN (FULL WIDTH) --- */}
+      {/* --- CHART PERBANDINGAN (⚡ REVISI LAYOUT: Diselaraskan dengan Dashboard) --- */}
       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center mx-2 sm:mx-0">
         <div className="mb-4 sm:mb-6 w-full text-center border-b border-slate-100 pb-3 sm:pb-4">
           <h4 className="text-sm sm:text-base font-black text-slate-900">Histori Performa</h4>
           <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Bulan Lalu vs MTD Berjalan</p>
         </div>
-        <div className="h-[250px] sm:h-[350px] w-full flex justify-center max-w-4xl mx-auto">
+        {/* Mengunci outline, select-none, dan menyuntikkan headroom top: 70 agar teks tidak bertabrakan */}
+        <div className="h-[250px] sm:h-[350px] w-full flex justify-center select-none [&_*]:outline-none">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 30, right: 0, left: 0, bottom: 0 }} barGap={20}>
+            <BarChart data={chartData} margin={{ top: 70, right: 10, left: -20, bottom: 0 }} barGap={12}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="name" hide />
               <YAxis hide type="number" />
-              <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-              <Legend verticalAlign="top" align="center" height={40} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+              <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+              <Legend verticalAlign="top" align="center" height={40} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', top: -10 }} />
               
-              <Bar dataKey="salesLM" name="Sales LM" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={40}>
-                <LabelList dataKey="salesLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 10)} />
+              <Bar dataKey="salesLM" name="Sales LM" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={28}>
+                <LabelList dataKey="salesLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
               </Bar>
-              <Bar dataKey="salesMTD" name="Sales MTD" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={40}>
-                <LabelList dataKey="salesMTD" content={(props) => renderCustomBarLabel(props, '#00B14F', 11)} />
+              <Bar dataKey="salesMTD" name="Sales MTD" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={28}>
+                <LabelList dataKey="salesMTD" content={(props) => renderCustomBarLabel(props, '#00B14F', 9)} />
               </Bar>
-              <Bar dataKey="adsLM" name="Ads LM" fill="#FDBA74" radius={[4, 4, 0, 0]} barSize={40}>
-                <LabelList dataKey="adsLM" content={(props) => renderCustomBarLabel(props, '#C2410C', 10)} />
+              <Bar dataKey="adsLM" name="Ads LM" fill="#FDBA74" radius={[4, 4, 0, 0]} barSize={28}>
+                <LabelList dataKey="adsLM" content={(props) => renderCustomBarLabel(props, '#C2410C', 8)} />
               </Bar>
-              <Bar dataKey="adsMTD" name="Ads MTD" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={40}>
-                <LabelList dataKey="adsMTD" content={(props) => renderCustomBarLabel(props, '#FF7A00', 11)} />
+              <Bar dataKey="adsMTD" name="Ads MTD" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={28}>
+                <LabelList dataKey="adsMTD" content={(props) => renderCustomBarLabel(props, '#FF7A00', 9)} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* --- 5. TIGA KOLOM DETAIL MERCHANT DI BAWAH --- */}
+      {/* --- 3 TABS KOLOM BAWAH (⚡ REVISI ORDER MOBILE & SCROLL PROMO) --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 px-2 sm:px-0">
         
-        {/* KOLOM 1: LOKASI & KONTAK */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
-          <div className="flex items-center justify-between mb-4 sm:mb-5 pb-3 sm:pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="p-2 bg-[#E5F7ED] rounded-xl"><MapPin size={18} className="text-[#00B14F] sm:w-5 sm:h-5" /></div>
-              <h4 className="text-sm sm:text-base font-black text-slate-900">Info Owner & Lokasi</h4>
-            </div>
+        {/* KOLOM 1: LOKASI & KONTAK (⚡ REVISI ORDER: order-3 membuat kolom lokasi turun paling bawah di HP) */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col h-full order-3 md:order-1">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <div className="p-2 bg-[#E5F7ED] text-[#00B14F] rounded-lg"><MapPin size={16} /></div>
+            <h4 className="text-sm font-black text-slate-900">Info Owner & Lokasi</h4>
           </div>
           
-          <div className="space-y-3 sm:space-y-4 flex-1">
+          <div className="space-y-3.5 flex-1">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 sm:mb-1">Nama Owner</span>
-                <p className="text-xs sm:text-sm font-black text-slate-800">{merchant.ownerName || '-'}</p>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Nama Owner</span>
+                <p className="text-xs font-black text-slate-800">{merchant.ownerName || '-'}</p>
               </div>
               <div>
-                <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 sm:mb-1">Comm</span>
-                <p className="text-xs sm:text-sm font-black text-slate-800">{merchant.baseComm || '-'}</p>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Komisi (Comm)</span>
+                <p className="text-xs font-black text-slate-800">{merchant.baseComm || '-'}</p>
               </div>
             </div>
 
             <div>
-              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 sm:mb-1">Email Aktif</span>
-              <p className="text-xs sm:text-sm font-bold text-slate-800 truncate" title={merchant.email}>{merchant.email || '-'}</p>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Email Aktif</span>
+              <p className="text-xs font-bold text-slate-800 truncate" title={merchant.email}>{merchant.email || '-'}</p>
             </div>
 
             <div className="pt-2 border-t border-slate-50">
-              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 sm:mb-2">Alamat Outlet</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Alamat Outlet</span>
               {merchant.latitude && merchant.longitude && merchant.latitude !== '-' ? (
                 <a 
-                  href={`https://www.google.com/maps?q=${merchant.latitude},${merchant.longitude}`}
+                  href={`https://maps.google.com/?q=${merchant.latitude},${merchant.longitude}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#00B14F] transition-all flex items-start gap-2 group p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#00B14F]/30"
+                  className="text-xs font-semibold text-slate-700 hover:text-[#00B14F] flex items-start justify-between gap-2 p-2 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#00B14F]/20 group transition-all"
                 >
                   <span className="underline decoration-dotted group-hover:decoration-solid flex-1">{merchant.address || 'Buka di Google Maps'}</span>
-                  <ExternalLink size={14} className="text-slate-400 group-hover:text-[#00B14F] shrink-0 mt-0.5" />
+                  <ExternalLink size={12} className="text-slate-400 group-hover:text-[#00B14F] mt-0.5 shrink-0" />
                 </a>
               ) : (
-                <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs sm:text-sm font-medium text-slate-700">
-                  {merchant.address || 'Detail alamat tidak tersedia'}
-                </div>
+                <div className="p-2 bg-slate-50 rounded-xl border text-xs font-medium text-slate-700">{merchant.address || 'Detail alamat tidak tersedia'}</div>
               )}
             </div>
             
             <div className="pt-2 border-t border-slate-50 mt-auto">
-              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 sm:mb-2">WhatsApp / Telepon</span>
               {merchant.phone && merchant.phone !== '-' && merchant.phone !== '0' ? (
                 <a 
                   href={getWhatsAppLink(merchant.phone)} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-[#E5F7ED] text-[#00B14F] hover:bg-[#00B14F] hover:text-white font-black text-xs rounded-xl border border-[#00B14F]/10 transition-all shadow-sm w-full justify-center group"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#E5F7ED] text-[#00B14F] hover:bg-[#00B14F] hover:text-white font-black text-xs rounded-xl border border-[#00B14F]/10 transition-all shadow-sm w-full group"
                 >
-                  <MessageCircle size={14} className="transition-transform group-hover:scale-110 sm:w-4 sm:h-4" />
-                  <span>Hubungi ({merchant.phone})</span>
+                  <MessageCircle size={14} className="transition-transform group-hover:scale-110" />
+                  <span>Hubungi Partner ({merchant.phone})</span>
                 </a>
               ) : (
-                <p className="text-xs font-bold text-slate-400 italic bg-slate-50 p-2 sm:p-3 rounded-xl text-center">Kontak tidak tersedia</p>
+                <p className="text-xs font-bold text-slate-400 italic bg-slate-50 p-2 rounded-xl text-center">Kontak telepon tidak tersedia</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* KOLOM 2: MCA STATUS */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
-          <div className="flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 pb-3 sm:pb-4 border-b border-slate-100">
-            <div className="p-2 bg-[#E5F7ED] rounded-xl"><Wallet size={18} className="text-[#00B14F] sm:w-5 sm:h-5" /></div>
-            <h4 className="text-sm sm:text-base font-black text-slate-900">Status Pencairan MCA</h4>
+        {/* KOLOM 2: MCA STATUS (order-1 di mobile, tampil pertama di bawah chart) */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col h-full order-1 md:order-2">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <div className="p-2 bg-[#E5F7ED] text-[#00B14F] rounded-lg"><Wallet size={16} /></div>
+            <h4 className="text-sm font-black text-slate-900">Limit & Status MCA</h4>
           </div>
           
-          <div className="space-y-3 sm:space-y-4 flex-1">
+          <div className="space-y-4 flex-1 justify-center flex flex-col">
             <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm font-bold text-slate-500 flex items-center gap-1.5 sm:gap-2"><Clock size={14} className="sm:w-4 sm:h-4"/> Status WL</span>
+              <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5"><Clock size={13}/> Status Ops</span>
               {merchant.mcaStatus.toLowerCase() === 'disbursed' ? (
-                <span className="px-2 sm:px-3 py-1 bg-[#E5F7ED] text-[#00B14F] font-bold text-[10px] sm:text-xs rounded-md sm:rounded-lg flex items-center gap-1"><CheckCircle2 size={12}/> Disbursed</span>
+                <span className="px-2 py-0.5 bg-[#E5F7ED] text-[#00B14F] font-bold text-[10px] rounded-md flex items-center gap-1"><CheckCircle2 size={11}/> Disbursed</span>
               ) : merchant.mcaStatus.toLowerCase().includes('pending') ? (
-                <span className="px-2 sm:px-3 py-1 bg-amber-50 text-amber-600 font-bold text-[10px] sm:text-xs rounded-md sm:rounded-lg">Pending</span>
+                <span className="px-2 py-0.5 bg-amber-50 text-amber-600 font-bold text-[10px] rounded-md">Pending</span>
               ) : (
-                <span className="px-2 sm:px-3 py-1 bg-slate-100 text-slate-500 font-bold text-[10px] sm:text-xs rounded-md sm:rounded-lg">No Status</span>
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 font-bold text-[10px] rounded-md">No Status</span>
               )}
             </div>
             
             <div className="flex justify-between items-center">
-              <span className="text-xs sm:text-sm font-bold text-slate-500 flex items-center gap-1.5 sm:gap-2"><Calendar size={14} className="sm:w-4 sm:h-4"/> Tanggal Cair</span>
-              <span className="text-xs sm:text-sm font-black text-slate-800">{merchant.mcaDate}</span>
+              <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5"><Calendar size={13}/> Tanggal Cair</span>
+              <span className="text-xs font-black text-slate-800">{merchant.mcaDate || '-'}</span>
             </div>
 
-            <div className="flex justify-between items-center pt-2 sm:pt-3 border-t border-slate-50">
-              <span className="text-xs sm:text-sm font-bold text-slate-500">Nominal Cair</span>
-              <span className="text-base sm:text-lg font-black text-[#00B14F]">{formatRupiah(merchant.mcaAmount)}</span>
+            <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+              <span className="text-xs font-bold text-slate-500">Limit Tersedia (AL)</span>
+              <span className="text-base font-black text-[#00B14F]">{formatRupiah(merchant.mcaAmount)}</span>
             </div>
           </div>
         </div>
 
-        {/* KOLOM 3: CAMPAIGN MIX */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
-          <div className="flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 pb-3 sm:pb-4 border-b border-slate-100">
-            <div className="p-2 bg-[#FFF2E5] rounded-xl"><Megaphone size={18} className="text-[#FF7A00] sm:w-5 sm:h-5" /></div>
-            <h4 className="text-sm sm:text-base font-black text-slate-900">Paket Promo Aktif</h4>
+        {/* KOLOM 3: CAMPAIGN MIX (⚡ REVISI BOX SCROLL: Anti-Ceklis Kosong & Dilengkapi Scrollbar) */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col h-full order-2 md:order-3">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <div className="p-2 bg-[#FFF2E5] text-[#FF7A00] rounded-lg"><Megaphone size={16} /></div>
+            <h4 className="text-sm font-black text-slate-900">Paket Promo Aktif</h4>
           </div>
           
           <div className="flex-1 flex flex-col">
-            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 sm:mb-2">Detail Promo (Raw Data)</p>
-            <div className="p-3 sm:p-4 bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-100 text-xs sm:text-sm font-mono text-slate-700 leading-relaxed flex-1 overflow-y-auto max-h-[160px] sm:max-h-full">
-              {merchant.campaignRaw && merchant.campaignRaw !== '-' && merchant.campaignRaw !== '0' 
-                ? merchant.campaignRaw.split('|').map((c, i) => <div key={i} className="mb-1 sm:mb-1.5 break-words whitespace-pre-wrap">✅ {c.trim()}</div>)
-                : <span className="text-slate-400 italic">Merchant tidak mengikuti campaign.</span>
-              }
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Daftar Ikut Serta Campaign</p>
+            
+            {/* Mengunci tinggi maksimal kotak di 150px dan memberikan scrollbar vertikal otomatis */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs font-mono text-slate-700 leading-relaxed max-h-[150px] overflow-y-auto space-y-1.5">
+              {merchant.campaignRaw && merchant.campaignRaw !== '-' && merchant.campaignRaw !== '0' ? (
+                merchant.campaignRaw
+                  .split('|')
+                  // Logika Filter untuk menendang spasi/ceklis kosong keluar dari tabel
+                  .filter(c => c && c.trim() !== '') 
+                  .map((c, i) => (
+                    <div key={i} className="break-words font-semibold text-slate-700">
+                      ✅ {c.trim()}
+                    </div>
+                  ))
+              ) : (
+                <span className="text-slate-400 italic">Merchant tidak mengikuti program promosi apapun.</span>
+              )}
             </div>
           </div>
         </div>
