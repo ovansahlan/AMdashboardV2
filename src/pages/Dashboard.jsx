@@ -164,7 +164,7 @@ export default function Dashboard() {
       if (!mexName || mexName === 'Mex Name' || mexName === '#N/A' || mexName.toString().toLowerCase().includes('update')) return;
       if (selectedAm !== 'All' && amName !== selectedAm) return;
 
-      let cleanName = mexName.split('-')[0].split(',')[0].trim();
+      let cleanName = mexName.trim()
       const mexId = row[3] && row[3] !== '' ? row[3].toString().trim() : `MEX-${1000 + index}`;
 
       const bs = parseNumber(row[19]);

@@ -2,21 +2,9 @@ import React, { useState, useMemo, useContext } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
 import { GlobalFilterContext } from '../context/GlobalContext'; 
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
-import { Loader2, AlertCircle, Award, Store, UserCircle, Megaphone, ShoppingCart, Calendar, CheckCircle2, TrendingUp, MonitorPlay, Users, Percent, DollarSign } from 'lucide-react'; // ⚡ Menggunakan MonitorPlay
+import { Loader2, AlertCircle, Award, Store, UserCircle, Megaphone, ShoppingCart, Clock, CheckCircle2, TrendingUp, MonitorPlay, Users, Percent, DollarSign } from 'lucide-react';
 
 const formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
-
-// Normalisasi pembacaan teks bulan Indonesia ke format standar Javascript Date
-const safeParseDate = (dateStr) => {
-  if (!dateStr || typeof dateStr !== 'string') return new Date(0);
-  let cleanStr = dateStr.trim().toLowerCase()
-    .replace('januari', 'january').replace('februari', 'february').replace('maret', 'march')
-    .replace('mei', 'may').replace('juni', 'june').replace('juli', 'july')
-    .replace('agustus', 'august').replace('oktober', 'october').replace('desember', 'december');
-  if (cleanStr === '-' || cleanStr === '0' || cleanStr === '#n/a' || cleanStr === 'n/a' || cleanStr === '') return new Date(0);
-  const parsed = Date.parse(cleanStr);
-  return isNaN(parsed) ? new Date(0) : new Date(parsed);
-};
 
 const renderCustomBarLabel = (props, color, fontSize) => {
   const { x, y, width, value } = props;
@@ -44,7 +32,8 @@ export default function MerchantPresentation() {
       const amName = row[2] ? row[2].toString().trim() : '';
       if (selectedAm !== 'All' && amName !== selectedAm) return;
       if (name && name !== 'Mex Name' && !name.toLowerCase().includes('update') && name !== '#N/A') {
-        list.push({ id: row[3] || name, name: name.split('-')[0].split(',')[0].trim(), fullName: name });
+        // ⚡ PERBAIKAN: Menghapus split('-')[0] agar nama di Dropdown lengkap
+        list.push({ id: row[3] || name, name: name.toString().trim(), fullName: name });
       }
     });
     return list;
@@ -94,7 +83,8 @@ export default function MerchantPresentation() {
           }))
       : [];
 
-    return { cleanName: selectedMex.split('-')[0].split(',')[0].trim(), mexId, amName, bsMTD, adsMTD, campaignRaw, campPts, promoUsage, aov, historyChart, dailyChart };
+    // ⚡ PERBAIKAN: Menghapus split agar nama di Kartu Profil lengkap
+    return { cleanName: selectedMex.toString().trim(), mexId, amName, bsMTD, adsMTD, campaignRaw, campPts, promoUsage, aov, historyChart, dailyChart };
   }, [selectedMex, dashboardData, historisData, dailyData]);
 
   const isLoading = loadDash || loadHist || loadDaily;
@@ -125,9 +115,9 @@ export default function MerchantPresentation() {
             <p className="text-[10px] sm:text-xs font-bold text-[#00B14F] uppercase tracking-wider">Presentasi Kinerja Khusus Partner Resto</p>
           </div>
         </div>
-        <div className="w-full sm:w-72 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 focus-within:border-[#00B14F] transition-colors">
+        <div className="w-full sm:w-[400px] bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 focus-within:border-[#00B14F] transition-colors">
           <Store size={16} className="text-slate-400 shrink-0" />
-          <select value={selectedMex} onChange={(e) => setSelectedMex(e.target.value)} className="text-xs sm:text-sm font-black text-slate-800 bg-transparent outline-none cursor-pointer w-full">
+          <select value={selectedMex} onChange={(e) => setSelectedMex(e.target.value)} className="text-xs sm:text-sm font-black text-slate-800 bg-transparent outline-none cursor-pointer w-full truncate">
             {merchantOptions.length === 0 ? <option value="">Tidak ada merchant</option> : merchantOptions.map(m => <option key={m.id} value={m.fullName}>{m.name}</option>)}
           </select>
         </div>

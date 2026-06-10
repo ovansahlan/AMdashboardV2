@@ -82,7 +82,7 @@ export default function MerchantDetail() {
       const mexId = row[3] && row[3] !== '' ? row[3].toString().trim() : `MEX-${1000 + index}`;
       
       if (mexId === id) {
-        const mexName = row[4] ? row[4].toString().split('-')[0].split(',')[0].trim() : 'Unknown Merchant';
+        const mexName = row[4] ? row[4].toString().trim() : 'Unknown Merchant';
         const amName = row[2] ? row[2].toString().trim() : 'Unassigned AM';
         
         const bsLM = parseNumber(row[18]);

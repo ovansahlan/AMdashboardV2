@@ -82,7 +82,7 @@ export default function GMSTracker() {
       const optOutCampRaw   = row[52] ? row[52].toString().trim() : ''; 
       const optOutDateRaw   = row[53] ? row[53].toString().trim() : ''; 
 
-      let cleanMexName = mexName.split('-')[0].split(',')[0].trim();
+      let cleanMexName = mexName.trim()
 
       let gmsType = 'Other';
       if (optInPackageRaw.toLowerCase().includes('booster')) gmsType = 'GMS Booster';

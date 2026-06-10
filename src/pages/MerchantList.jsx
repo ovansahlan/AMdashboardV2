@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSheetData } from '../hooks/useSheetData';
-import { GlobalFilterContext } from '../context/GlobalContext'; //  Ganti dengan ini
+import { GlobalFilterContext } from '../context/GlobalContext';
 import { Loader2, AlertCircle, Search, Filter, ArrowUpDown, ChevronUp, ChevronDown, Store, UserCircle } from 'lucide-react';
 
 const formatRupiah = (number) => {
@@ -20,10 +20,7 @@ const parseCampaign = (val) => {
   }
   
   const str = val.toLowerCase();
-  
-  if (str.includes('booster+') || str.includes('booster +')) {
-    return 'Booster+';
-  }
+  if (str.includes('booster+') || str.includes('booster +')) return 'Booster+';
 
   const hasGMS = str.includes('gms booster') || str.includes('gms cuan');
   const hasLocal = str.split('|').some(p => !p.trim().includes('gms booster') && !p.trim().includes('gms cuan') && !p.trim().includes('booster+'));
@@ -54,20 +51,14 @@ export default function MerchantList() {
   const [sortConfig, setSortConfig] = useState({ key: 'basketSize', direction: 'desc' });
 
   const amList = useMemo(() => {
-    if (!data || data.length === 0) return ['All'];
+    if (!data || !Array.isArray(data) || data.length === 0) return ['All'];
     const uniqueAms = new Set();
     data.forEach(row => {
       const amName = row[2];
       const mexName = row[4]; 
       if (
-        amName && 
-        typeof amName === 'string' &&
-        amName.trim() !== '' && 
-        amName !== 'AM Name' && 
-        !amName.toLowerCase().includes('update') && 
-        !amName.toLowerCase().includes('tanggal') &&
-        mexName && 
-        mexName !== 'Mex Name'
+        amName && typeof amName === 'string' && amName.trim() !== '' && amName !== 'AM Name' && 
+        !amName.toLowerCase().includes('update') && !amName.toLowerCase().includes('tanggal') && mexName && mexName !== 'Mex Name'
       ) {
         uniqueAms.add(amName.trim());
       }
@@ -76,7 +67,7 @@ export default function MerchantList() {
   }, [data]);
 
   const merchants = useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!data || !Array.isArray(data) || data.length === 0) return [];
     const rawList = [];
     data.forEach((row, index) => {
       const mexName = row[4];
@@ -89,12 +80,12 @@ export default function MerchantList() {
       rawList.push({
         id: index,
         mexId: mexId.toString().trim(),
-        mexName: mexName.split('-')[0].split(',')[0].trim(),
+        // ⚡ PERBAIKAN: Menghapus split('-')[0] agar nama area / cabang tetap tampil utuh
+        mexName: mexName.toString().trim(), 
         amName: rawAmName,
         shortAmName: shortAmName, 
         basketSize: parseNumber(row[19]),
         adsSpent: parseNumber(row[31]),
-        // ⚡ PERBAIKAN: Mengambil Limit MCA dari Kolom AL (Index 37)
         mcaAmount: parseNumber(row[37]), 
         campaignStatus: parseCampaign(row[44])
       });
@@ -160,14 +151,8 @@ export default function MerchantList() {
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl w-full sm:w-auto">
           <Filter size={16} className="text-[#00B14F] shrink-0" />
           <span className="text-xs sm:text-sm font-semibold text-slate-600 shrink-0">AM:</span>
-          <select
-            value={selectedAm}
-            onChange={(e) => setSelectedAm(e.target.value)}
-            className="text-xs sm:text-sm font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer w-full"
-          >
-            {amList.map((am) => (
-              <option key={am} value={am}>{am === 'All' ? 'Semua Area Manager' : am}</option>
-            ))}
+          <select value={selectedAm} onChange={(e) => setSelectedAm(e.target.value)} className="text-xs sm:text-sm font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer w-full">
+            {amList.map((am) => <option key={am} value={am}>{am === 'All' ? 'Semua Area Manager' : am}</option>)}
           </select>
         </div>
       </div>
@@ -209,7 +194,6 @@ export default function MerchantList() {
                 <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('adsSpent')}>
                   <div className="flex items-center">Ads MTD {getSortIcon('adsSpent')}</div>
                 </th>
-                {/* ⚡ PERBAIKAN: Judul kolom diubah menjadi Limit MCA */}
                 <th className="px-2.5 py-3 sm:p-4 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('mcaAmount')}>
                   <div className="flex items-center">Limit MCA {getSortIcon('mcaAmount')}</div>
                 </th>
@@ -219,48 +203,26 @@ export default function MerchantList() {
               </tr>
             </thead>
             <tbody className="text-xs sm:text-sm divide-y divide-slate-100">
-              {processedData.length === 0 ? (
-                <tr><td colSpan="6" className="p-6 text-center text-slate-500 font-medium text-xs">Tidak ada data.</td></tr>
-              ) : (
-                processedData.map((merchant, index) => (
-                  <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                    <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
-                    
-                    <td className="px-2.5 py-3 sm:p-4 max-w-[240px] sm:max-w-[320px] lg:max-w-[400px]">
-                      <div 
-                        className="font-black text-slate-800 text-[13px] sm:text-sm truncate" 
-                        title={merchant.mexName} 
-                      >
-                        {merchant.mexName}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 overflow-hidden">
-                        <span className="font-mono text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 truncate shrink-0">{merchant.mexId}</span>
-                        <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold shrink-0">
-                          <UserCircle size={10} className="sm:w-3 sm:h-3"/> {merchant.shortAmName}
-                        </span>
-                      </div>
-                    </td>
-                    
-                    <td className="px-2.5 py-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
-                    <td className="px-2.5 py-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
-                    
-                    {/* ⚡ MENAMPILKAN LIMIT TERSEDIA DENGAN WARNA KHAS GRAB */}
-                    <td className="px-2.5 py-3 sm:p-4">
-                      {merchant.mcaAmount > 0 ? (
-                        <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div>
-                      ) : (
-                        <div className="font-mono font-medium text-slate-300">-</div>
-                      )}
-                    </td>
-
-                    <td className="px-2.5 py-3 sm:p-4">
-                      <span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>
-                        {merchant.campaignStatus}
+              {processedData.map((merchant, index) => (
+                <tr key={merchant.id} onClick={() => navigate(`/merchant/${merchant.mexId}`)} className="hover:bg-slate-50 transition-colors group cursor-pointer">
+                  <td className="px-2.5 py-3 sm:p-4 text-center font-bold text-slate-400">{index + 1}</td>
+                  <td className="px-2.5 py-3 sm:p-4 max-w-[240px] sm:max-w-[320px] lg:max-w-[400px]">
+                    <div className="font-black text-slate-800 text-[13px] sm:text-sm truncate" title={merchant.mexName}>
+                      {merchant.mexName}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 overflow-hidden">
+                      <span className="font-mono text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 truncate shrink-0">{merchant.mexId}</span>
+                      <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold shrink-0">
+                        <UserCircle size={10} className="sm:w-3 sm:h-3"/> {merchant.shortAmName}
                       </span>
-                    </td>
-                  </tr>
-                ))
-              )}
+                    </div>
+                  </td>
+                  <td className="px-2.5 py-3 sm:p-4"><div className="font-mono font-bold text-slate-700 text-xs sm:text-sm">{formatRupiah(merchant.basketSize)}</div></td>
+                  <td className="px-2.5 py-3 sm:p-4">{merchant.adsSpent > 0 ? <div className="font-mono font-bold text-[#FF7A00] text-xs sm:text-sm">{formatRupiah(merchant.adsSpent)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                  <td className="px-2.5 py-3 sm:p-4">{merchant.mcaAmount > 0 ? <div className="font-mono font-bold text-[#00B14F] text-xs sm:text-sm">{formatRupiah(merchant.mcaAmount)}</div> : <div className="font-mono font-medium text-slate-300">-</div>}</td>
+                  <td className="px-2.5 py-3 sm:p-4"><span className={`inline-flex px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold border ${getCampaignBadge(merchant.campaignStatus)}`}>{merchant.campaignStatus}</span></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

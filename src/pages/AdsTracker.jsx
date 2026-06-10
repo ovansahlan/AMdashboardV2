@@ -92,7 +92,7 @@ export default function AdsTracker() {
 
       const mexId = row[3] && row[3] !== '' ? row[3] : `MEX-${1000 + index}`; 
       const shortAmName = getShortAmName(rawAmName); 
-      let cleanName = mexName.split('-')[0].split(',')[0].trim();
+      let cleanName = mexName.trim();
 
       // Hanya proses yang pernah bakar Ads (LM atau MTD)
       if (adsSpent > 0 || adsLM > 0) {
