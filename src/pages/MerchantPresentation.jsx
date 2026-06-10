@@ -2,7 +2,7 @@ import React, { useState, useMemo, useContext, useEffect } from 'react';
 import { useSheetData } from '../hooks/useSheetData';
 import { GlobalFilterContext } from '../context/GlobalContext'; 
 import { BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
-import { Loader2, AlertCircle, Award, Store, UserCircle, Megaphone, ShoppingCart, Clock, CheckCircle2, TrendingUp, MonitorPlay, Users, Percent, DollarSign, Search, X } from 'lucide-react';
+import { Loader2, AlertCircle, Award, Store, UserCircle, Megaphone, ShoppingCart, Clock, CheckCircle2, TrendingUp, MonitorPlay, Users, Percent, DollarSign, Search, X, Wallet, Image, PieChart } from 'lucide-react';
 
 const formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
 
@@ -71,14 +71,16 @@ export default function MerchantPresentation() {
     if (!selectedMex || !dashboardData || !historisData) return null;
 
     const dashRow = dashboardData.find(r => r[4] === selectedMex);
-    let bsMTD = 0, amName = 'Unassigned', mexId = '-', campaignRaw = '';
+    let bsMTD = 0, amName = 'Unassigned', mexId = '-', campaignRaw = '', mcaAmount = 0;
     if (dashRow) {
-      amName = dashRow[2]; mexId = dashRow[3];
+      amName = dashRow[2] ? dashRow[2].toString().trim() : 'Unassigned';
+      mexId = dashRow[3] || '-';
       bsMTD = parseNumber(dashRow[19]);
+      mcaAmount = parseNumber(dashRow[37]); // MAPPING MCA DARI DASHBOARD (KOLOM AL)
       campaignRaw = dashRow[44] || ''; 
     }
 
-    let historyChart = [], lastAov = 0, lastPromoUsage = '-', lastOnlineHours = 0;
+    let historyChart = [], lastAov = 0, lastInvestmentRate = '-', lastOnlineHours = 0, lastPhotoPenetration = '-';
     
     if (Array.isArray(historisData) && historisData.length > 1) {
       const myHistoryRows = historisData.filter(r => {
@@ -107,7 +109,8 @@ export default function MerchantPresentation() {
         const adsWeb = parseNumber(row[17]);             
         const adsDirect = parseNumber(row[18]);          
         const onlineHours = parseNumber(row[29]);
-        const adsOrders = parseNumber(row[21]); // ⚡ Kolom V: co_with_ads        
+        const adsOrders = parseNumber(row[21]); 
+        const photoPenetration = row[28] ? row[28].toString().trim() : '-';       
 
         const promoUsageRate = totalOrders > 0 ? Math.round((promoOrders / totalOrders) * 100) : 0;
         const totalAds = adsMobile + adsWeb + adsDirect;
@@ -116,20 +119,27 @@ export default function MerchantPresentation() {
         const netSales = basketSize - merchantInvestment;
         
         const uncompletedOrders = Math.max(0, totalOrders - completedOrders);
+        const investmentRate = basketSize > 0 ? ((merchantInvestment / basketSize) * 100).toFixed(1) : 0;
 
+        // Ambil nilai data bulan terakhir untuk disajikan di Card Profile dan Kpi Highlight
         lastAov = aov;
-        lastPromoUsage = `${promoUsageRate}%`;
         lastOnlineHours = onlineHours;
+        lastPhotoPenetration = photoPenetration;
+        lastInvestmentRate = `${investmentRate}%`;
 
         return {
           month: monthLabel, basketSize, merchantInvestment, netSales,
           completedOrders, totalOrders, uncompletedOrders, adsOrders, aov, promoUsageRate, onlineHours,
-          baseComm, mfp, mfc, totalAds, totalCpoGms
+          baseComm, mfp, mfc, totalAds, totalCpoGms, photoPenetration
         };
       });
     }
 
-    return { cleanName: selectedMex.toString().trim(), mexId, amName, bsMTD, campaignRaw, aov: lastAov, promoUsage: lastPromoUsage, onlineHours: lastOnlineHours, historyChart };
+    return { 
+      cleanName: selectedMex.toString().trim(), mexId, amName, bsMTD, campaignRaw, mcaAmount, 
+      aov: lastAov, investmentRate: lastInvestmentRate, onlineHours: lastOnlineHours, photoPenetration: lastPhotoPenetration, 
+      historyChart 
+    };
   }, [selectedMex, dashboardData, historisData]);
 
   const isLoading = loadDash || loadHist;
@@ -147,7 +157,7 @@ export default function MerchantPresentation() {
   if (anyError) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-xs flex items-center gap-2"><AlertCircle size={16} /><span>Gagal memuat data: {anyError.toString()}</span></div>;
 
   // =========================================================================
-  // ⚡ REVISI TOOLTIP KHUSUS AGAR TIDAK BERTUMPUK & LEBIH RAPI (SPACING)
+  // ⚡ REVISI TOOLTIP KHUSUS (DIPERLEBAR, SPASI DITAMBAH AGAR MEWAH)
   // =========================================================================
 
   const HistoryTooltip = ({ active, payload, label }) => {
@@ -156,12 +166,25 @@ export default function MerchantPresentation() {
       const invPct = data.basketSize > 0 ? ((data.merchantInvestment / data.basketSize) * 100).toFixed(1) : 0;
       const netPct = data.basketSize > 0 ? ((data.netSales / data.basketSize) * 100).toFixed(1) : 0;
       return (
-        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-xl border border-slate-100 min-w-[260px] space-y-3">
-          <p className="font-black text-slate-900 text-sm text-center border-b border-slate-100 pb-2.5">{label}</p>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-xs"><span className="text-[#00B14F] font-bold flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)</span><span className="font-mono font-black text-[#00B14F]">{formatRupiah(data.netSales)}</span></div>
-            <div className="flex justify-between items-center text-xs"><span className="text-[#FF7A00] font-bold flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)</span><span className="font-mono font-black text-[#FF7A00]">{formatRupiah(data.merchantInvestment)}</span></div>
-            <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center text-xs"><span className="text-slate-500 font-bold">Gross Basket Size</span><span className="font-mono font-black text-slate-900 text-sm">{formatRupiah(data.basketSize)}</span></div>
+        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-2xl shadow-2xl border border-slate-100 min-w-[300px]">
+          <p className="font-black text-slate-900 text-sm text-center border-b border-slate-100 pb-3 mb-4 tracking-wide">{label}</p>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-[#00B14F] font-bold flex items-center gap-2.5">
+                <div className="w-3 h-3 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)
+              </span>
+              <span className="font-mono font-black text-[#00B14F]">{formatRupiah(data.netSales)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-[#FF7A00] font-bold flex items-center gap-2.5">
+                <div className="w-3 h-3 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)
+              </span>
+              <span className="font-mono font-black text-[#FF7A00]">{formatRupiah(data.merchantInvestment)}</span>
+            </div>
+          </div>
+          <div className="pt-4 mt-4 border-t border-dashed border-slate-200 flex justify-between items-center bg-slate-50 -mx-2 px-2 py-1.5 rounded-lg">
+            <span className="text-slate-500 font-bold text-xs uppercase tracking-widest">Gross Basket Size</span>
+            <span className="font-mono font-black text-slate-900 text-base">{formatRupiah(data.basketSize)}</span>
           </div>
         </div>
       );
@@ -235,7 +258,7 @@ export default function MerchantPresentation() {
     <div className="bg-[#F7F9FA] min-h-full space-y-4 sm:space-y-6 -mx-2 sm:mx-0 select-none [&_*]:outline-none pb-8">
       
       {/* ======================================================== */}
-      {/* 1. HEADER & SEARCHABLE DROPDOWN (⚡ FIX: onMouseDown)    */}
+      {/* 1. HEADER & SEARCHABLE DROPDOWN                            */}
       {/* ======================================================== */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:flex-row justify-between lg:items-center gap-4 relative mx-2 sm:mx-0 z-40">
         <div className="flex items-center gap-2.5 sm:gap-3">
@@ -268,7 +291,6 @@ export default function MerchantPresentation() {
                   <div
                     key={m.id}
                     className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-xs sm:text-sm font-bold text-slate-700 border-b border-slate-50 last:border-0"
-                    // ⚡ FIX: onMouseDown dieksekusi sebelum onBlur, sehingga klik pasti terdaftar
                     onMouseDown={(e) => {
                       e.preventDefault();
                       setSelectedMex(m.fullName);
@@ -291,46 +313,81 @@ export default function MerchantPresentation() {
         <div className="space-y-4 sm:space-y-6 animate-fadeIn">
 
           {/* ======================================================== */}
-          {/* 2. PROFIL & PROMO AKTIF                                    */}
+          {/* 2. PROFIL MERCHANT & PROMO AKTIF (ROMBAK TOTAL UI)         */}
           {/* ======================================================== */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mx-2 sm:mx-0">
-            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col">
-              <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3"><UserCircle size={18} className="text-[#00B14F]" /><h4 className="font-black text-slate-900 text-sm">Profil Akun Partner</h4></div>
-              <div className="space-y-3 text-xs flex-1 flex flex-col justify-center">
-                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-400 font-bold">Nama Outlet:</span><span className="font-black text-slate-800 text-right line-clamp-1">{profile.cleanName}</span></div>
-                <div className="flex justify-between py-1 border-b border-slate-50"><span className="text-slate-400 font-bold">Merchant ID:</span><span className="font-mono font-bold text-slate-700">{profile.mexId}</span></div>
-                <div className="flex justify-between py-1"><span className="text-slate-400 font-bold">Manager:</span><span className="font-bold text-emerald-600">{profile.amName}</span></div>
+            {/* KARTU PROFIL EKSKLUSIF */}
+            <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-2.5 leading-tight">{profile.cleanName}</h3>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 font-mono font-bold text-[10px] rounded-lg tracking-wider">
+                    {profile.mexId}
+                  </span>
+                  <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 font-bold text-[10px] rounded-lg flex items-center gap-1.5 uppercase tracking-wider">
+                    <UserCircle size={12}/> AM: {profile.amName}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 mt-2 pt-4 border-t border-slate-100">
+                 <div className="bg-[#E5F7ED] p-3 rounded-2xl border border-[#00B14F]/20">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-[#00B14F] uppercase block mb-1 flex items-center gap-1.5"><Wallet size={12}/> Limit MCA</span>
+                    <span className="font-black text-[#00B14F] text-sm sm:text-base">{formatRupiah(profile.mcaAmount)}</span>
+                 </div>
+                 <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-blue-600 uppercase block mb-1 flex items-center gap-1.5"><Image size={12}/> Photo Pen.</span>
+                    <span className="font-black text-blue-600 text-sm sm:text-base">{profile.photoPenetration}</span>
+                 </div>
               </div>
             </div>
-            <div className="bg-white p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 md:col-span-2 flex flex-col">
-              <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3"><Award size={18} className="text-[#FF7A00]" /><h4 className="font-black text-slate-900 text-sm">Program Promosi Aktif</h4></div>
-              <div className="flex flex-wrap gap-2 flex-1 items-center">
+
+            {/* KARTU PROMO AKTIF BERGAYA WADAH */}
+            <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 md:col-span-2 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                 <div>
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+                       <Award size={18} className="text-[#FF7A00]"/> Program Promosi Aktif
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 font-medium">Daftar partisipasi kampanye promo dari dashboard utama</p>
+                 </div>
+              </div>
+              
+              <div className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-wrap gap-2.5 items-start content-start overflow-y-auto max-h-[140px]">
                 {profile.campaignRaw && profile.campaignRaw !== '-' && profile.campaignRaw !== '0' ? (
-                  profile.campaignRaw.split('|').filter(c => c && c.trim() !== '').map((c, i) => <span key={i} className="px-3 py-2 bg-[#E5F7ED] text-[#00B14F] border border-[#00B14F]/10 text-xs font-black rounded-xl">✅ {c.trim()}</span>)
-                ) : <span className="text-slate-400 italic text-xs">Tidak ada program promo aktif dari dashboard utama.</span>}
+                  profile.campaignRaw.split('|').filter(c => c && c.trim() !== '').map((c, i) => (
+                    <span key={i} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm font-bold rounded-xl shadow-sm flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-[#00B14F]"/> {c.trim()}
+                    </span>
+                  ))
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 italic text-xs font-semibold">
+                    Tidak ada program promo aktif yang terdeteksi.
+                  </div>
+                )}
               </div>
             </div>
           </div>
           
           {/* ======================================================== */}
-          {/* 3. CORE HIGHLIGHT CARDS                                    */}
+          {/* 3. CORE HIGHLIGHT CARDS (GANTI RASIO INVESTASI)            */}
           {/* ======================================================== */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mx-2 sm:mx-0">
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
               <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl shrink-0"><ShoppingCart size={18} /></div>
-              <div><span className="text-[9px] font-bold text-slate-400 uppercase block">Basket MTD</span><p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(profile.bsMTD)}</p></div>
+              <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Basket MTD</span><p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(profile.bsMTD)}</p></div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
               <div className="p-2.5 bg-[#FFF2E5] text-[#FF7A00] rounded-xl shrink-0"><DollarSign size={18} /></div>
-              <div><span className="text-[9px] font-bold text-slate-400 uppercase block">AOV Terakhir</span><p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(profile.aov)}</p></div>
+              <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">AOV Terakhir</span><p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(profile.aov)}</p></div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shrink-0"><Percent size={18} /></div>
-              <div><span className="text-[9px] font-bold text-slate-400 uppercase block">Rasio Promo</span><p className="text-sm sm:text-base font-black text-slate-900">{profile.promoUsage}</p></div>
+              <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl shrink-0"><PieChart size={18} /></div>
+              <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Rasio Investasi</span><p className="text-sm sm:text-base font-black text-slate-900">{profile.investmentRate}</p></div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl shrink-0"><Clock size={18} /></div>
-              <div><span className="text-[9px] font-bold text-slate-400 uppercase block">Jam Aktif Bulanan</span><p className="text-sm sm:text-base font-black text-slate-900">{profile.onlineHours} Jam</p></div>
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shrink-0"><Clock size={18} /></div>
+              <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Jam Buka Aktif</span><p className="text-sm sm:text-base font-black text-slate-900">{profile.onlineHours} Jam</p></div>
             </div>
           </div>
 
@@ -386,7 +443,6 @@ export default function MerchantPresentation() {
           {/* ======================================================== */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
             
-            {/* ⚡ CHART EFISIENSI ORDER (DITAMBAH BAR ADS & DIPERBESAR) */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-4 border-b border-slate-100 pb-3 text-center">
                 <h4 className="text-sm sm:text-base font-black text-slate-900">Efisiensi Order Bulanan</h4>
@@ -400,19 +456,14 @@ export default function MerchantPresentation() {
                     <YAxis hide />
                     <Tooltip content={<OrderTooltip />} cursor={{ fill: 'transparent' }} />
                     <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '15px' }} />
-                    
-                    {/* Tumpukan Order (Completed + Uncompleted) */}
-                    <Bar dataKey="completedOrders" name="Selesai (Completed)" stackId="order" fill="#00B14F" barSize={24} />
-                    <Bar dataKey="uncompletedOrders" name="Batal / Gagal" stackId="order" fill="#EF4444" barSize={24} radius={[4, 4, 0, 0]} />
-                    
-                    {/* Bar Order by Ads yang berdiri sendiri di sebelahnya */}
-                    <Bar dataKey="adsOrders" name="Order via GrabAds" fill="#3B82F6" barSize={24} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="completedOrders" name="Selesai (Completed)" stackId="order" fill="#00B14F" barSize={28} />
+                    <Bar dataKey="uncompletedOrders" name="Batal / Gagal" stackId="order" fill="#EF4444" barSize={28} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="adsOrders" name="Order via GrabAds" fill="#3B82F6" barSize={28} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* DUAL LINE CHART AOV & PROMO */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-4 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Korelasi AOV & Rasio Promo</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Pengaruh tingkat pesanan promo terhadap tren harga nilai tiket (AOV)</p></div>
               <div className="h-[230px] sm:h-[260px] w-full select-none">
@@ -431,7 +482,6 @@ export default function MerchantPresentation() {
               </div>
             </div>
 
-            {/* ONLINE HOURS CHART */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 lg:col-span-2">
               <div className="mb-4 border-b border-slate-100 pb-3 text-center"><h4 className="text-sm sm:text-base font-black text-slate-900">Konsistensi Jam Operasional Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Total durasi jam buka toko aktif (Online Hours) secara akumulatif per bulan</p></div>
               <div className="h-[200px] sm:h-[240px] w-full select-none">
