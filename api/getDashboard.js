@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       targetRange = 'Historis_Bulanan!A:AZ';
     } else if (requestedTab === 'getRawDaily') {
       // Anda bisa ubah ini jadi 'Raw_DailyJuni26!A:Z' jika namanya memang itu
-      targetRange = 'Raw_daily!A:Z'; 
+      targetRange = 'Raw_DailyJuni26!A:Z'; 
     }
 
     try {
