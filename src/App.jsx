@@ -78,9 +78,9 @@ const AppLayout = () => {
   return (
     <div className="flex h-screen bg-[#F7F9FA] selection:bg-[#00B14F]/20 selection:text-[#00B14F] overflow-hidden relative">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        * { font-family: 'Inter', sans-serif !important; }
-      `}</style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+  * { font-family: 'Plus Jakarta Sans', sans-serif !important; }
+`}</style>
 
       {!isHomepage && (
         <aside className="w-[260px] border-r border-slate-200 h-full shadow-[4px_0_24px_rgb(0,0,0,0.02)] z-20 hidden md:block shrink-0">
