@@ -55,19 +55,20 @@ const formatDateIndonesia = (dateStr) => {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 
+// ⚡ PERBAIKAN: Posisi Y digeser sedikit ke atas (y - 12) agar lebih leluasa dari batangnya
 const renderCustomBarLabel = (props, color, fontSize) => {
   const { x, y, width, value } = props;
   if (!value) return null;
   return (
     <text
       x={x + width / 2}
-      y={y - 6}
+      y={y - 12} 
       fill={color}
       fontSize={fontSize}
       fontWeight="900"
       textAnchor="start" 
       dominantBaseline="central"
-      transform={`rotate(-90, ${x + width / 2}, ${y - 6})`}
+      transform={`rotate(-90, ${x + width / 2}, ${y - 12})`}
       style={{ pointerEvents: 'none', outline: 'none' }}
     >
       {formatShorthandNum(value)}
@@ -473,15 +474,16 @@ export default function Dashboard() {
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Basket Size</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Bulan Lalu vs Bulan Ini</p>
           </div>
-          {/* ⚡ PERBAIKAN: Menambahkan select-none dan mematikan outline global dalam pembungkus */}
           <div className="h-[250px] sm:h-[350px] w-full flex justify-center select-none [&_*]:outline-none [&_*]:focus:outline-none">
+            {/* ⚡ PERBAIKAN: margin top diperbesar jadi 70 agar text angka tidak nabrak Legend */}
             <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }}>
-              <BarChart data={charts.topSales} margin={{ top: 30, right: 0, left: 0, bottom: 20 }} barGap={4}>
+              <BarChart data={charts.topSales} margin={{ top: 70, right: 0, left: 0, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={9} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={60} interval={0} padding={{ left: 15, right: 15 }} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip accentColor="#00B14F" useRunrate={true} />} cursor={{ fill: 'transparent' }} />
-                <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+                
+                <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', top: -10 }} />
                 
                 <Bar dataKey="salesLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} onClick={handleChartClick} style={{ outline: 'none', cursor: 'pointer' }}>
                   <LabelList dataKey="salesLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
@@ -500,15 +502,16 @@ export default function Dashboard() {
             <h4 className="text-sm sm:text-base font-black text-slate-900">Top 10 Ads Spender</h4>
             <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Alokasi Biaya Promosi</p>
           </div>
-          {/* ⚡ PERBAIKAN: Menambahkan select-none dan mematikan outline global dalam pembungkus */}
           <div className="h-[250px] sm:h-[350px] w-full flex justify-center select-none [&_*]:outline-none [&_*]:focus:outline-none">
+            {/* ⚡ PERBAIKAN: margin top diperbesar jadi 70 */}
             <ResponsiveContainer width="100%" height="100%" style={{ outline: 'none' }}>
-              <BarChart data={charts.topAds} margin={{ top: 30, right: 0, left: 0, bottom: 20 }} barGap={4}>
+              <BarChart data={charts.topAds} margin={{ top: 70, right: 0, left: 0, bottom: 20 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" stroke="#6B7280" fontSize={9} tickLine={false} axisLine={false} dy={10} angle={-45} textAnchor="end" height={60} interval={0} padding={{ left: 15, right: 15 }} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CompareTooltip accentColor="#FF7A00" useRunrate={false} />} cursor={{ fill: 'transparent' }} />
-                <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+                
+                <Legend verticalAlign="top" align="center" height={30} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', top: -10 }} />
                 
                 <Bar dataKey="adsLM" name="Bulan Lalu" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={12} activeBar={false} onClick={handleChartClick} style={{ outline: 'none', cursor: 'pointer' }}>
                   <LabelList dataKey="adsLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
