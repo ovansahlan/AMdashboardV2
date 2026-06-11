@@ -266,7 +266,7 @@ export default function MerchantPresentation() {
             </div>
             <div className="flex justify-between items-center text-xs sm:text-sm">
               <span className="text-slate-600 font-bold flex items-center gap-2.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)
+                <div className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]"></div> Invest ({invPct}%)
               </span>
               <span className="font-mono font-black text-[#FF7A00]">{formatRupiah(data.merchantInvestment)}</span>
             </div>

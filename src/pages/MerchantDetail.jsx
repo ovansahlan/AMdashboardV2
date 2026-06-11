@@ -1,18 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSheetData } from '../hooks/useSheetData';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
-import { ArrowLeft, Store, UserCircle, Wallet, Megaphone, ShoppingCart, Coins, Award, Loader2, AlertCircle, Calendar, CheckCircle2, Clock, MapPin, ExternalLink, MessageCircle, Copy } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
+import { ArrowLeft, Store, UserCircle, Wallet, Megaphone, ShoppingCart, Coins, Award, Loader2, AlertCircle, Calendar, CheckCircle2, Clock, MapPin, ExternalLink, MessageCircle, Copy, Image, Percent, DollarSign, PieChart, TrendingUp } from 'lucide-react';
 
 // ==========================================
 // 1. HELPER FUNCTIONS
 // ==========================================
-const formatRupiah = (number) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
-};
+const formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number || 0);
 
 const formatShorthandNum = (num) => {
-  if (!num || num === 0) return '0';
+  if (!num || num === 0) return '';
   if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`;
   if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
   if (num >= 1e3) return `${(num / 1e3).toFixed(0)}K`;
@@ -21,24 +19,17 @@ const formatShorthandNum = (num) => {
 
 const parseNumber = (val) => {
   if (!val || val === '-' || val.toString().trim() === '' || val === '#N/A') return 0;
-  const cleanStr = val.toString().replace(/,/g, '').replace(/Rp/g, '').trim();
+  const cleanStr = val.toString().replace(/,/g, '').replace(/Rp/g, '').replace('%', '').trim();
   const parsed = parseFloat(cleanStr);
   return isNaN(parsed) ? 0 : parsed;
 };
 
-const parseCampaign = (val) => {
-  if (!val || typeof val !== 'string' || val.trim() === '' || val === '0' || val === '-' || val.toLowerCase().includes('no campaign') || val === '#n/a') {
-    return 'Zero Campaign';
-  }
-  const str = val.toLowerCase();
-  if (str.includes('booster+') || str.includes('booster +')) return 'Booster+';
-  const hasGMS = str.includes('gms booster') || str.includes('gms cuan');
-  const hasLocal = str.split('|').some(p => !p.trim().includes('gms booster') && !p.trim().includes('gms cuan') && !p.trim().includes('booster+'));
-
-  if (hasGMS && hasLocal) return 'GMS & Local';
-  if (hasGMS && !hasLocal) return 'GMS Only';
-  if (!hasGMS && hasLocal) return 'Local Only';
-  return 'Zero Campaign';
+const safeParseDate = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return new Date(0);
+  let cleanStr = dateStr.trim().toLowerCase().replace('januari', 'january').replace('februari', 'february').replace('maret', 'march').replace('mei', 'may').replace('juni', 'june').replace('juli', 'july').replace('agustus', 'august').replace('oktober', 'october').replace('desember', 'december');
+  if (cleanStr === '-' || cleanStr === '0' || cleanStr === '#n/a' || cleanStr === 'n/a' || cleanStr === '') return new Date(0);
+  const parsed = Date.parse(cleanStr);
+  return isNaN(parsed) ? new Date(0) : new Date(parsed);
 };
 
 const getWhatsAppLink = (phoneStr) => {
@@ -48,34 +39,70 @@ const getWhatsAppLink = (phoneStr) => {
   return `https://wa.me/${cleanNumber}`;
 };
 
-// ⚡ REVISI CHART: Samakan fungsi label agar tegak lurus presisi di tengah Bar sesuai standar dashboard
-const renderCustomBarLabel = (props, color, fontSize) => {
+const getShortAmName = (fullName) => {
+  if (!fullName) return 'Unassigned';
+  const name = fullName.toLowerCase();
+  if (name.includes('novan')) return 'Novan';
+  if (name.includes('dadan')) return 'Dadan';
+  if (name.includes('regianaldo') || name.includes('aldo')) return 'Aldo';
+  if (name.includes('saeful hikam') || name.includes('hikam') || name.includes('hilkam')) return 'Hilkam';
+  return fullName.split(' ')[0];
+};
+
+// ==========================================
+// 2. CHART LABEL FORMATTERS
+// ==========================================
+const renderInnerBarLabel = (props, textColor) => {
+  const { x, y, width, height, value } = props;
+  if (!value || height < 18) return null; 
+  return (
+    <text x={x + width / 2} y={y + height / 2} fill={textColor || "#fff"} fontSize={9} fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>
+      {formatShorthandNum(value)}
+    </text>
+  );
+};
+
+const renderPercentLabel = (props, textColor) => {
+  const { x, y, width, height, value } = props;
+  if (!value || value < 5 || height < 18) return null; 
+  return (
+    <text x={x + width / 2} y={y + height / 2} fill={textColor || "#fff"} fontSize={10} fontWeight="900" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>
+      {Math.round(value)}%
+    </text>
+  );
+};
+
+const renderTotalRangeLabel = (props) => {
+  const { x, y, width, payload } = props;
+  if (!payload || !payload.totalRange) return null;
+  return (
+    <text x={x + width / 2} y={y - 12} fill="#4B5563" fontSize={11} fontWeight="900" textAnchor="middle" style={{ pointerEvents: 'none' }}>
+      {formatShorthandNum(payload.totalRange)}
+    </text>
+  );
+};
+
+const renderTopBarLabel = (props, color) => {
   const { x, y, width, value } = props;
   if (!value) return null;
   return (
-    <text 
-      x={x + width / 2} 
-      y={y - 12} 
-      fill={color} 
-      fontSize={fontSize} 
-      fontWeight="900" 
-      textAnchor="start" 
-      dominantBaseline="central" 
-      transform={`rotate(-90, ${x + width / 2}, ${y - 12})`} 
-      style={{ pointerEvents: 'none', outline: 'none' }}
-    >
+    <text x={x + width / 2} y={y - 8} fill={color} fontSize={10} fontWeight="900" textAnchor="middle" style={{ pointerEvents: 'none' }}>
       {formatShorthandNum(value)}
     </text>
   );
 };
 
 // ==========================================
-// 2. MAIN COMPONENT
+// 3. MAIN COMPONENT
 // ==========================================
 export default function MerchantDetail() {
   const { id } = useParams(); 
   const navigate = useNavigate();
-  const { data, isLoading, error } = useSheetData('getDashboard');
+  
+  // ⚡ FETCH KEDUA DATA SEKALIGUS
+  const { data: dashboardData, isLoading: loadDash, error: errDash } = useSheetData('getDashboard');
+  const { data: historisData, isLoading: loadHist, error: errHist } = useSheetData('getHistoris');
+  
   const [copiedField, setCopiedField] = useState('');
 
   const handleCopyShortcut = (text, fieldName) => {
@@ -85,87 +112,251 @@ export default function MerchantDetail() {
   };
 
   const merchant = useMemo(() => {
-    if (!data || data.length === 0 || !id) return null;
-    let foundMerchant = null;
+    if (!dashboardData || dashboardData.length === 0 || !id) return null;
+    let dashRow = null;
+    let mexName = '';
 
-    data.forEach((row, index) => {
+    dashboardData.forEach((row, index) => {
       const mexId = row[3] && row[3] !== '' ? row[3].toString().trim() : `MEX-${1000 + index}`;
-      
       if (mexId === id) {
-        const mexName = row[4] ? row[4].toString().trim() : 'Unknown Merchant';
-        const amName = row[2] ? row[2].toString().trim() : 'Unassigned AM';
-        
-        const bsLM = parseNumber(row[18]);
-        const bsMTD = parseNumber(row[19]);
-        const bsRR = parseNumber(row[20]);
-        const invMTD = parseNumber(row[23]);
-        const adsLM = parseNumber(row[30]);
-        const adsMTD = parseNumber(row[31]);
-        const mcaStatus = row[39] ? row[39].toString().trim() : 'No Data';
-        const mcaDate = row[40] ? row[40].toString().trim() : '-';
-        const mcaAmount = parseNumber(row[37]); // Berpedoman pada Kolom AL (Limit MCA)
-        const campaignRaw = row[44] ? row[44].toString().trim() : '';
-        const campaignStatus = parseCampaign(campaignRaw);
-        const campaignPts = parseNumber(row[45]);
-
-        const address = row[9] ? row[9].toString().trim() : '';      
-        const ownerName = row[10] ? row[10].toString().trim() : '';  
-        const phone = row[11] ? row[11].toString().trim() : '';      
-        const email = row[12] ? row[12].toString().trim() : '';      
-        const baseComm = row[13] ? row[13].toString().trim() : '';   
-        const latitude = row[14] ? row[14].toString().trim() : '';   
-        const longitude = row[15] ? row[15].toString().trim() : '';  
-
-        foundMerchant = {
-          mexId, mexName, amName, bsLM, bsMTD, bsRR, invMTD, adsLM, adsMTD,
-          mcaStatus, mcaDate, mcaAmount, campaignRaw, campaignStatus, campaignPts,
-          address, ownerName, phone, email, baseComm, latitude, longitude
-        };
+        dashRow = row;
+        mexName = row[4] ? row[4].toString().trim() : 'Unknown Merchant';
       }
     });
-    return foundMerchant;
-  }, [data, id]);
 
-  const chartData = useMemo(() => {
-    if (!merchant) return [];
-    return [{
-      name: 'Komparasi MTD Berjalan',
-      salesLM: merchant.bsLM,
-      salesMTD: merchant.bsMTD,
-      adsLM: merchant.adsLM,
-      adsMTD: merchant.adsMTD,
-    }];
-  }, [merchant]);
+    if (!dashRow) return null;
 
-  if (isLoading) return <div className="flex justify-center min-h-[70vh] items-center"><Loader2 className="animate-spin text-[#00B14F]" size={36} /></div>;
+    // --- MAPPING DASHBOARD INFO ---
+    const amName = dashRow[2] ? dashRow[2].toString().trim() : 'Unassigned';
+    const city = dashRow[8] ? dashRow[8].toString().trim() : '-'; 
+    const address = dashRow[9] ? dashRow[9].toString().trim() : '';      
+    const ownerName = dashRow[10] ? dashRow[10].toString().trim() : '';  
+    const phone = dashRow[11] ? dashRow[11].toString().trim() : '';      
+    const email = dashRow[12] ? dashRow[12].toString().trim() : '';      
+    const baseComm = dashRow[13] ? dashRow[13].toString().trim() : '-';   
+    const latitude = dashRow[14] ? dashRow[14].toString().trim() : '';   
+    const longitude = dashRow[15] ? dashRow[15].toString().trim() : '';  
+
+    const bsMTD = parseNumber(dashRow[19]);
+    const adsMTD = parseNumber(dashRow[31]);
+    const mcaStatus = dashRow[39] ? dashRow[39].toString().trim() : '';
+    const mcaDate = dashRow[40] ? dashRow[40].toString().trim() : '';
+    const mcaAmount = parseNumber(dashRow[37]);
+    const campaignRaw = dashRow[44] ? dashRow[44].toString().trim() : '';
+
+    const shortAmName = getShortAmName(amName);
+
+    // --- MAPPING HISTORIS INFO ---
+    let historyChart = [], lastAov = 0, lastPhotoPenetration = '-';
+    let sumInvestment = 0, sumBasketSize = 0, sumOnlineHours = 0, countOnlineHours = 0;
+    let sumTotalAds = 0, sumBsWithAds = 0;
+
+    if (Array.isArray(historisData) && historisData.length > 1) {
+      const myHistoryRows = historisData.filter(r => {
+        const rowName = r[3] ? r[3].toString().trim() : '';
+        const rowId = r[2] ? r[2].toString().trim() : '';
+        return rowName === mexName || rowId === id;
+      });
+      
+      myHistoryRows.sort((a, b) => safeParseDate(a[1]) - safeParseDate(b[1]));
+
+      historyChart = myHistoryRows.map(row => {
+        const dateObj = safeParseDate(row[1]);
+        const monthLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
+
+        const completedOrders = parseNumber(row[5]);    
+        const totalOrders = parseNumber(row[6]);        
+        const promoOrders = parseNumber(row[7]);        
+        const basketSize = parseNumber(row[9]);         
+        const mfp = parseNumber(row[10]);                
+        const mfc = parseNumber(row[11]);                
+        const cpo = parseNumber(row[12]);                
+        const gms = parseNumber(row[13]);                
+        const histBaseComm = parseNumber(row[14]);           
+        const aov = parseNumber(row[15]);                
+        const adsMobile = parseNumber(row[16]);          
+        const adsWeb = parseNumber(row[17]);             
+        const adsDirect = parseNumber(row[18]);          
+        const onlineHours = parseNumber(row[29]);
+        const adsOrders = parseNumber(row[21]); 
+        const bsWithAds = parseNumber(row[22]);     
+        const photoPenetration = row[28] ? row[28].toString().trim() : '-';
+        
+        const co0_20 = parseNumber(row[23]);
+        const co20_40 = parseNumber(row[24]);
+        const co40_60 = parseNumber(row[25]);
+        const co60_100 = parseNumber(row[26]);
+        const co100_plus = parseNumber(row[27]);
+
+        const totalRange = co0_20 + co20_40 + co40_60 + co60_100 + co100_plus;
+        const co0_20_pct = totalRange > 0 ? (co0_20 / totalRange) * 100 : 0;
+        const co20_40_pct = totalRange > 0 ? (co20_40 / totalRange) * 100 : 0;
+        const co40_60_pct = totalRange > 0 ? (co40_60 / totalRange) * 100 : 0;
+        const co60_100_pct = totalRange > 0 ? (co60_100 / totalRange) * 100 : 0;
+        const co100_plus_pct = totalRange > 0 ? (co100_plus / totalRange) * 100 : 0;
+
+        const promoUsageRate = totalOrders > 0 ? Math.round((promoOrders / totalOrders) * 100) : 0;
+        const totalAds = adsMobile + adsWeb + adsDirect;
+        const totalCpoGms = cpo + gms;
+        const merchantInvestment = mfp + mfc + totalAds + totalCpoGms + histBaseComm;
+        const netSales = basketSize - merchantInvestment;
+        const uncompletedOrders = Math.max(0, totalOrders - completedOrders);
+
+        sumInvestment += merchantInvestment;
+        sumBasketSize += basketSize;
+        if (onlineHours > 0) { sumOnlineHours += onlineHours; countOnlineHours++; }
+        sumTotalAds += totalAds;
+        sumBsWithAds += bsWithAds;
+
+        lastAov = aov;
+        lastPhotoPenetration = photoPenetration;
+
+        return {
+          month: monthLabel, basketSize, merchantInvestment, netSales,
+          completedOrders, totalOrders, uncompletedOrders, adsOrders, aov, promoUsageRate, onlineHours,
+          baseComm: histBaseComm, mfp, mfc, totalAds, totalCpoGms, photoPenetration,
+          co0_20_pct, co20_40_pct, co40_60_pct, co60_100_pct, co100_plus_pct, totalRange
+        };
+      });
+    }
+
+    const avgInvestmentRate = sumBasketSize > 0 ? ((sumInvestment / sumBasketSize) * 100).toFixed(1) : 0;
+    const avgOnlineHours = countOnlineHours > 0 ? Math.round(sumOnlineHours / countOnlineHours) : 0;
+    const avgRoas = sumTotalAds > 0 ? (sumBsWithAds / sumTotalAds).toFixed(1) : 0;
+
+    return { 
+      mexId: id, mexName, shortAmName, city, address, ownerName, phone, email, baseComm, latitude, longitude,
+      bsMTD, adsMTD, campaignRaw, mcaAmount, mcaStatus, mcaDate, 
+      aov: lastAov, photoPenetration: lastPhotoPenetration, 
+      avgInvestmentRate: `${avgInvestmentRate}%`, avgOnlineHours, avgRoas: `${avgRoas}x`,
+      historyChart 
+    };
+  }, [dashboardData, historisData, id]);
+
+  const isLoading = loadDash || loadHist;
+  const anyError = errDash || errHist;
+
+  if (isLoading) return <div className="flex flex-col justify-center min-h-[70vh] items-center gap-3"><Loader2 className="animate-spin text-[#00B14F]" size={40} /><p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Membuka Profil Merchant...</p></div>;
   
-  if (error || !merchant) return (
+  if (anyError || !merchant) return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6">
       <AlertCircle size={48} className="mb-4 text-red-400" />
-      <h2 className="text-xl font-black mb-2">Merchant Tidak Ditemukan</h2>
-      <button onClick={() => navigate('/merchant')} className="mt-4 px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition-colors">Kembali</button>
+      <h2 className="text-xl font-black mb-2">Merchant Tidak Ditemukan / Error</h2>
+      <p className="text-sm text-slate-500 mb-4">{anyError?.toString()}</p>
+      <button onClick={() => navigate('/merchant')} className="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition-colors">Kembali ke Daftar</button>
     </div>
   );
 
-  const getCampaignBadge = (status) => {
-    switch(status) {
-      case 'Booster+': return 'bg-[#F4F0FF] text-[#7E22CE] border-[#7E22CE]/20';
-      case 'GMS & Local': return 'bg-[#E5F7ED] text-[#00B14F] border-[#00B14F]/20';
-      case 'GMS Only': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
-      case 'Local Only': return 'bg-[#FFF2E5] text-[#FF7A00] border-[#FF7A00]/20';
-      default: return 'bg-slate-100 text-slate-500 border-slate-200';
+  // =========================================================================
+  // ⚡ TOOLTIPS COMPONENTS
+  // =========================================================================
+  const HistoryTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const invPct = data.basketSize > 0 ? ((data.merchantInvestment / data.basketSize) * 100).toFixed(1) : 0;
+      const netPct = data.basketSize > 0 ? ((data.netSales / data.basketSize) * 100).toFixed(1) : 0;
+      return (
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[260px] sm:min-w-[280px]">
+          <p className="font-black text-slate-900 text-xs sm:text-sm text-center border-b border-slate-100 pb-2 mb-3 tracking-wide uppercase">{label}</p>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-600 font-bold flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)</span><span className="font-mono font-black text-[#00B14F]">{formatRupiah(data.netSales)}</span></div>
+            <div className="flex justify-between items-center text-xs sm:text-sm"><span className="text-slate-600 font-bold flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)</span><span className="font-mono font-black text-[#FF7A00]">{formatRupiah(data.merchantInvestment)}</span></div>
+          </div>
+          <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl"><span className="text-slate-500 font-bold text-[10px] sm:text-xs uppercase tracking-widest">Gross Basket</span><span className="font-mono font-black text-slate-900 text-xs sm:text-sm">{formatRupiah(data.basketSize)}</span></div>
+        </div>
+      );
     }
+    return null;
+  };
+
+  const InvestmentTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[260px] sm:min-w-[300px] space-y-3 text-xs sm:text-sm">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 text-center uppercase tracking-wide">Breakdown Investasi: {label}</p>
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600">1. Komisi Dasar</span><span className="font-mono font-black text-slate-700">{formatRupiah(data.baseComm)}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-purple-600">2. Promo (MFP)</span><span className="font-mono font-black text-purple-600">{formatRupiah(data.mfp)}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-pink-600">3. Diskon (MFC)</span><span className="font-mono font-black text-pink-600">{formatRupiah(data.mfc)}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-amber-600">4. Iklan (Ads)</span><span className="font-mono font-black text-amber-600">{formatRupiah(data.totalAds)}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-blue-500">5. CPO & GMS</span><span className="font-mono font-black text-blue-500">{formatRupiah(data.totalCpoGms)}</span></div>
+          </div>
+          <div className="pt-3 border-t border-slate-200 flex justify-between items-center font-black text-slate-900 bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl"><span className="text-[10px] sm:text-xs uppercase tracking-widest text-slate-500">Total Alokasi</span><span className="font-mono text-[#FF7A00]">{formatRupiah(data.merchantInvestment)}</span></div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const OrderTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const completed = payload.find(p => p.dataKey === 'completedOrders')?.value || 0;
+      const uncompleted = payload.find(p => p.dataKey === 'uncompletedOrders')?.value || 0;
+      const adsOrders = payload.find(p => p.dataKey === 'adsOrders')?.value || 0;
+      const total = completed + uncompleted;
+      const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : 0;
+      return (
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[240px] sm:min-w-[260px]">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 mb-3 text-center text-xs sm:text-sm uppercase tracking-wide">{label}</p>
+          <div className="space-y-3 text-xs sm:text-sm">
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#00B14F]"></div> Selesai</span><span className="font-black text-[#00B14F]">{completed}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div> Batal/Gagal</span><span className="font-black text-red-500">{uncompleted}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div> Order Iklan</span><span className="font-black text-blue-500">{adsOrders}</span></div>
+          </div>
+          <div className="pt-3 mt-3 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl flex justify-between items-center text-[10px] sm:text-xs"><span>Masuk: <strong className="text-slate-800">{total}</strong></span><span>Rasio Sukses: <strong className="text-[#00B14F]">{completionRate}%</strong></span></div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const AovTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const aovPayload = payload.find(p => p.dataKey === 'aov');
+      const promoPayload = payload.find(p => p.dataKey === 'promoUsageRate');
+      return (
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[240px] sm:min-w-[260px]">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 mb-3 text-center text-xs sm:text-sm uppercase tracking-wide">{label}</p>
+          <div className="space-y-3 text-xs sm:text-sm">
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]"></div> AOV (Harga Rata2)</span><span className="font-mono font-black text-[#FF7A00]">{formatRupiah(aovPayload?.value || 0)}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></div> Rasio Promo</span><span className="font-black text-[#10B981]">{promoPayload?.value || 0}%</span></div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const PriceRangeTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[260px] sm:min-w-[280px]">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 mb-3 text-center text-xs sm:text-sm uppercase tracking-wide">Distribusi Harga: {label}</p>
+          <div className="space-y-3 text-xs sm:text-sm">
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#FBBF24]"></div> 0 - 20rb</span><span><strong className="text-slate-900">{data.co0_20}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co0_20_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#F97316]"></div> 20rb - 40rb</span><span><strong className="text-slate-900">{data.co20_40}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co20_40_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></div> 40rb - 60rb</span><span><strong className="text-slate-900">{data.co40_60}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co40_60_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#A855F7]"></div> 60rb - 100rb</span><span><strong className="text-slate-900">{data.co60_100}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co60_100_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div> {'>'} 100rb</span><span><strong className="text-slate-900">{data.co100_plus}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co100_plus_pct.toFixed(1)}%)</span></span></div>
+          </div>
+          <div className="pt-3 mt-3 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl flex justify-between items-center text-[10px] sm:text-xs">
+            <span>Total Transaksi Valid</span>
+            <strong className="text-slate-800 text-xs sm:text-sm">{data.totalRange}</strong>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
-    <div className="bg-[#F7F9FA] min-h-full space-y-3 sm:space-y-6 -mx-2 sm:mx-0 animate-fadeIn pb-8">
+    <div className="bg-[#F7F9FA] min-h-full space-y-4 sm:space-y-6 -mx-2 sm:mx-0 select-none [&_*]:outline-none pb-12">
       
-      {/* --- HEADER NAVIGASI --- */}
+      {/* --- HEADER --- */}
       <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3 sm:gap-4 mx-2 sm:mx-0">
-        <button 
-          onClick={() => navigate('/merchant')}
-          className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl shadow-sm hover:border-[#00B14F] hover:text-[#00B14F] transition-all text-slate-500 shrink-0"
-        >
+        <button onClick={() => navigate('/merchant')} className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl shadow-sm hover:border-[#00B14F] hover:text-[#00B14F] transition-all text-slate-500 shrink-0">
           <ArrowLeft size={18} className="sm:w-5 sm:h-5" />
         </button>
         <div>
@@ -174,227 +365,290 @@ export default function MerchantDetail() {
         </div>
       </div>
 
-      {/* --- KARTU IDENTITAS HERO (⚡ REVISI FONT SIZING: Diperkecil agar proporsional) --- */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 relative overflow-hidden mx-2 sm:mx-0">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#00B14F]/5 rounded-bl-full -mr-10 -mt-10"></div>
-        
-        <div className="flex items-center gap-4 sm:gap-5 relative z-10 w-full md:w-auto">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#00B14F] rounded-xl flex items-center justify-center shadow-md shrink-0">
-            <Store size={24} className="text-white sm:w-8 sm:h-8" />
-          </div>
-          <div className="space-y-1 flex-1">
-            <div className="flex items-center gap-2 group flex-wrap">
-              {/* Sizing diturunkan dari text-3xl menjadi text-xl sm:text-2xl */}
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">{merchant.mexName}</h2>
-              <button 
-                onClick={() => handleCopyShortcut(merchant.mexName, 'name')}
-                className="p-1 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-[#00B14F] rounded-lg transition-all"
-              >
-                {copiedField === 'name' ? <CheckCircle2 size={13} className="text-[#00B14F]" /> : <Copy size={13} />}
-              </button>
+      <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+
+        {/* --- 1. PROFIL & PROMO AKTIF (TOP ROW) --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mx-2 sm:mx-0">
+          {/* KARTU PROFIL (Lebar 2 Kolom) */}
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 md:col-span-2 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 group flex-wrap mb-1.5">
+                <h3 className="text-xl sm:text-3xl font-black text-slate-900 leading-tight">{merchant.mexName}</h3>
+                <button onClick={() => handleCopyShortcut(merchant.mexName, 'name')} className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-[#00B14F] rounded-lg transition-all" title="Copy Nama">
+                  {copiedField === 'name' ? <CheckCircle2 size={16} className="text-[#00B14F]" /> : <Copy size={16} />}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2.5 mb-5 mt-2.5">
+                <span className="px-3 py-1 bg-slate-50 border border-slate-200 text-slate-600 font-mono font-bold text-[10px] sm:text-xs rounded-lg flex items-center gap-1.5 tracking-wider">
+                  ID: {merchant.mexId}
+                  <button onClick={() => handleCopyShortcut(merchant.mexId, 'id')} className="hover:text-[#00B14F] transition-colors ml-0.5" title="Copy ID">
+                    {copiedField === 'id' ? <CheckCircle2 size={12} className="text-[#00B14F]" /> : <Copy size={12} />}
+                  </button>
+                </span>
+                <span className="px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 font-bold text-[10px] sm:text-xs rounded-lg flex items-center gap-1.5 uppercase tracking-wider"><UserCircle size={14}/> AM: {merchant.shortAmName}</span>
+                <span className="px-3 py-1 bg-blue-50 border border-blue-100 text-blue-600 font-bold text-[10px] sm:text-xs rounded-lg flex items-center gap-1.5 uppercase tracking-wider"><MapPin size={14}/> {merchant.city}</span>
+                <span className="px-3 py-1 bg-purple-50 border border-purple-100 text-purple-600 font-bold text-[10px] sm:text-xs rounded-lg flex items-center gap-1.5 uppercase tracking-wider"><Percent size={14}/> Comm: {merchant.baseComm}</span>
+                <span className="px-3 py-1 bg-pink-50 border border-pink-100 text-pink-600 font-bold text-[10px] sm:text-xs rounded-lg flex items-center gap-1.5 uppercase tracking-wider"><Image size={14}/> Foto: {merchant.photoPenetration}</span>
+              </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 bg-slate-50 text-slate-600 font-mono font-bold text-[10px] sm:text-xs rounded-md border border-slate-200 flex items-center gap-1.5">
-                ID: {merchant.mexId}
-                <button onClick={() => handleCopyShortcut(merchant.mexId, 'id')} className="hover:bg-slate-200 text-slate-400 hover:text-[#00B14F] rounded transition-all">
-                  {copiedField === 'id' ? <CheckCircle2 size={11} className="text-[#00B14F]" /> : <Copy size={11} />}
-                </button>
-              </span>
-              <span className={`px-2 py-0.5 font-bold text-[10px] sm:text-xs rounded-md border ${getCampaignBadge(merchant.campaignStatus)}`}>
-                {merchant.campaignStatus}
-              </span>
+            <div className="bg-[#E5F7ED] p-4 rounded-2xl border border-[#00B14F]/20 flex flex-col justify-center w-full mt-2">
+               <div className="flex justify-between items-center mb-1.5">
+                 <span className="text-[10px] sm:text-xs font-bold text-[#00B14F] uppercase tracking-wider flex items-center gap-1.5"><Wallet size={16}/> Limit Pencairan (MCA)</span>
+                 {merchant.mcaStatus.toLowerCase() === 'disbursed' ? (
+                   <span className="text-[10px] bg-[#00B14F] text-white px-2.5 py-1 rounded-md font-bold shadow-sm flex items-center gap-1.5 uppercase tracking-wider"><CheckCircle2 size={12}/> Cair: {merchant.mcaDate}</span>
+                 ) : merchant.mcaStatus.toLowerCase().includes('pending') ? (
+                   <span className="text-[10px] bg-white text-amber-500 border border-amber-200 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Pending Cair</span>
+                 ) : (
+                   <span className="text-[10px] bg-white text-slate-500 border border-slate-200 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Tidak Aktif</span>
+                 )}
+               </div>
+               <span className="font-black text-[#00B14F] text-xl sm:text-3xl tracking-tight">{formatRupiah(merchant.mcaAmount)}</span>
+            </div>
+          </div>
+
+          {/* KARTU PROMO AKTIF */}
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+               <div><h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2"><Award size={18} className="text-[#FF7A00]"/> Promo Aktif</h3><p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 font-medium">Partisipasi promo resto saat ini</p></div>
+            </div>
+            <div className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl p-3 flex flex-col gap-2.5 items-start overflow-y-auto max-h-[100px] sm:max-h-[130px]">
+              {merchant.campaignRaw && merchant.campaignRaw !== '-' && merchant.campaignRaw !== '0' ? (
+                merchant.campaignRaw.split('|').filter(c => c && c.trim() !== '').map((c, i) => (
+                  <span key={i} className="px-3 py-2 w-full bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-sm flex items-center gap-2.5">
+                    <CheckCircle2 size={16} className="text-[#00B14F] shrink-0"/> <span className="truncate">{c.trim()}</span>
+                  </span>
+                ))
+              ) : <div className="w-full h-full flex items-center justify-center text-slate-400 italic text-xs font-semibold text-center">Tidak ada promo aktif.</div>}
             </div>
           </div>
         </div>
-
-        <div className="flex flex-col gap-0.5 md:text-right relative z-10 p-3 bg-slate-50 rounded-xl border border-slate-100 w-full md:w-auto">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center md:justify-end gap-1.5">
-            <UserCircle size={12} /> Account Manager
-          </span>
-          <span className="text-sm font-black text-slate-900">{merchant.amName}</span>
-        </div>
-      </div>
-
-      {/* --- GRID 4 KPI CARDS --- */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-2 sm:px-0">
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-          <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl"><ShoppingCart size={18} /></div>
-          <div>
-            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Basket MTD</p>
-            <p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.bsMTD)}</p>
-          </div>
-        </div>
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-          <div className="p-2.5 bg-[#FFF2E5] text-[#FF7A00] rounded-xl"><Megaphone size={18} /></div>
-          <div>
-            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Ads MTD</p>
-            <p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.adsMTD)}</p>
-          </div>
-        </div>
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-          <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl"><Coins size={18} /></div>
-          <div>
-            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Invest MTD</p>
-            <p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.invMTD)}</p>
-          </div>
-        </div>
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-          <div className="p-2.5 bg-[#E5F7ED] text-[#00B14F] rounded-xl"><Award size={18} /></div>
-          <div>
-            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Camp Points</p>
-            <p className="text-sm sm:text-base font-black text-slate-900">{merchant.campaignPts}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* --- CHART PERBANDINGAN (⚡ REVISI LAYOUT: Diselaraskan dengan Dashboard) --- */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center mx-2 sm:mx-0">
-        <div className="mb-4 sm:mb-6 w-full text-center border-b border-slate-100 pb-3 sm:pb-4">
-          <h4 className="text-sm sm:text-base font-black text-slate-900">Histori Performa</h4>
-          <p className="text-[10px] sm:text-xs text-slate-500 mt-1">Bulan Lalu vs MTD Berjalan</p>
-        </div>
-        {/* Mengunci outline, select-none, dan menyuntikkan headroom top: 70 agar teks tidak bertabrakan */}
-        <div className="h-[250px] sm:h-[350px] w-full flex justify-center select-none [&_*]:outline-none">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 70, right: 10, left: -20, bottom: 0 }} barGap={12}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-              <XAxis dataKey="name" hide />
-              <YAxis hide type="number" />
-              <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
-              <Legend verticalAlign="top" align="center" height={40} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', top: -10 }} />
-              
-              <Bar dataKey="salesLM" name="Sales LM" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={28}>
-                <LabelList dataKey="salesLM" content={(props) => renderCustomBarLabel(props, '#6B7280', 8)} />
-              </Bar>
-              <Bar dataKey="salesMTD" name="Sales MTD" fill="#00B14F" radius={[4, 4, 0, 0]} barSize={28}>
-                <LabelList dataKey="salesMTD" content={(props) => renderCustomBarLabel(props, '#00B14F', 9)} />
-              </Bar>
-              <Bar dataKey="adsLM" name="Ads LM" fill="#FDBA74" radius={[4, 4, 0, 0]} barSize={28}>
-                <LabelList dataKey="adsLM" content={(props) => renderCustomBarLabel(props, '#C2410C', 8)} />
-              </Bar>
-              <Bar dataKey="adsMTD" name="Ads MTD" fill="#FF7A00" radius={[4, 4, 0, 0]} barSize={28}>
-                <LabelList dataKey="adsMTD" content={(props) => renderCustomBarLabel(props, '#FF7A00', 9)} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* --- 3 TABS KOLOM BAWAH (⚡ REVISI ORDER MOBILE & SCROLL PROMO) --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 px-2 sm:px-0">
         
-        {/* KOLOM 1: LOKASI & KONTAK (⚡ REVISI ORDER: order-3 membuat kolom lokasi turun paling bawah di HP) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col h-full order-3 md:order-1">
+        {/* --- 2. 5 KPI CARDS --- */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mx-2 sm:mx-0">
+          <div className="bg-white p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="p-3 bg-[#E5F7ED] text-[#00B14F] rounded-xl shrink-0"><ShoppingCart size={20} /></div>
+            <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Basket MTD</span><p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.bsMTD)}</p></div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="p-3 bg-[#FFF2E5] text-[#FF7A00] rounded-xl shrink-0"><DollarSign size={20} /></div>
+            <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">AOV Terakhir</span><p className="text-sm sm:text-base font-black text-slate-900">{formatRupiah(merchant.aov)}</p></div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl shrink-0"><PieChart size={20} /></div>
+            <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Avg. Investasi</span><p className="text-sm sm:text-base font-black text-slate-900">{merchant.avgInvestmentRate}</p></div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0"><Clock size={20} /></div>
+            <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Avg. Jam Buka</span><p className="text-sm sm:text-base font-black text-slate-900">{merchant.avgOnlineHours} Jam</p></div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3 col-span-2 lg:col-span-1">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl shrink-0"><TrendingUp size={20} /></div>
+            <div><span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">ROAS Ads (6Bln)</span><p className="text-sm sm:text-base font-black text-slate-900">{merchant.avgRoas}</p></div>
+          </div>
+        </div>
+
+        {/* --- 3. GRAFIK FINANSIAL UTAMA --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
+            <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Struktur Omset Bersih vs Investasi</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Komparasi Penjualan Bersih (Net Sales) vs Total Potongan Investasi Toko</p></div>
+            {merchant.historyChart && merchant.historyChart.length > 0 ? (
+              <div className="h-[280px] sm:h-[320px] w-full flex justify-center select-none">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={merchant.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} dy={10} />
+                    <YAxis hide />
+                    <Tooltip content={<HistoryTooltip />} cursor={{ fill: 'transparent' }} />
+                    <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
+                    <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 6, 6]} barSize={36}>
+                      <LabelList dataKey="netSales" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="merchantInvestment" name="Total Investasi" stackId="a" fill="#E5E7EB" radius={[6, 6, 0, 0]} barSize={36}>
+                      <LabelList dataKey="merchantInvestment" content={(p) => renderInnerBarLabel(p, '#6B7280')} />
+                    </Bar>
+                    <Line type="monotone" dataKey="basketSize" name="Gross Sales" stroke="#3B82F6" strokeWidth={3} dot={{ r: 5, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }}>
+                      <LabelList dataKey="basketSize" position="top" formatter={formatShorthandNum} style={{ fill: '#3B82F6', fontSize: 11, fontWeight: '900' }} dy={-10} />
+                    </Line>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            ) : <div className="p-8 text-center text-slate-400 italic text-xs">Data histori tidak tersedia.</div>}
+          </div>
+
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
+            <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Alokasi Rincian Investasi Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Struktur pembagian potongan (Komisi, Skema Promo Resto, dan GrabAds)</p></div>
+            {merchant.historyChart && merchant.historyChart.length > 0 ? (
+              <div className="h-[280px] sm:h-[320px] w-full flex justify-center select-none">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={merchant.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} dy={10} />
+                    <YAxis hide />
+                    <Tooltip content={<InvestmentTooltip />} cursor={{ fill: 'transparent' }} />
+                    <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
+                    <Bar dataKey="baseComm" name="Base Comm" stackId="inv" fill="#94A3B8" barSize={36} radius={[0, 0, 6, 6]}>
+                      <LabelList dataKey="baseComm" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="mfp" name="Promo Patungan" stackId="inv" fill="#A855F7" barSize={36}>
+                      <LabelList dataKey="mfp" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="mfc" name="Diskon Coret" stackId="inv" fill="#EC4899" barSize={36}>
+                      <LabelList dataKey="mfc" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="totalAds" name="Iklan (GrabAds)" stackId="inv" fill="#F97316" barSize={36}>
+                      <LabelList dataKey="totalAds" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="totalCpoGms" name="CPO & GMS" stackId="inv" fill="#3B82F6" barSize={36} radius={[6, 6, 0, 0]}>
+                      <LabelList dataKey="totalCpoGms" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : <div className="p-8 text-center text-slate-400 italic text-xs">Data histori tidak tersedia.</div>}
+          </div>
+        </div>
+
+        {/* --- 4. GRAFIK OPERASIONAL & AOV --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
+            <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Efisiensi Order Bulanan</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Selesai vs Batal, disandingkan dengan sumbangan Order dari Iklan</p></div>
+            <div className="h-[250px] sm:h-[280px] w-full select-none">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={merchant.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }} barGap={8}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                  <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
+                  <YAxis hide />
+                  <Tooltip content={<OrderTooltip />} cursor={{ fill: 'transparent' }} />
+                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
+                  <Bar dataKey="completedOrders" name="Selesai (Completed)" stackId="order" fill="#00B14F" barSize={30} radius={[0, 0, 6, 6]}>
+                    <LabelList dataKey="completedOrders" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                  </Bar>
+                  <Bar dataKey="uncompletedOrders" name="Batal / Gagal" stackId="order" fill="#EF4444" barSize={30} radius={[6, 6, 0, 0]}>
+                    <LabelList dataKey="uncompletedOrders" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                  </Bar>
+                  <Bar dataKey="adsOrders" name="Order via GrabAds" fill="#3B82F6" barSize={30} radius={[6, 6, 0, 0]}>
+                    <LabelList dataKey="adsOrders" content={(p) => renderTopBarLabel(p, '#3B82F6')} />
+                  </Bar>
+                  <Line type="monotone" dataKey="totalOrders" stroke="transparent" dot={false} activeDot={false} legendType="none" tooltipType="none">
+                    <LabelList dataKey="totalOrders" position="top" formatter={(v) => v > 0 ? formatShorthandNum(v) : ''} style={{ fill: '#6B7280', fontSize: 11, fontWeight: '900' }} dy={-5} />
+                  </Line>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
+            <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Korelasi AOV & Rasio Promo</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Pengaruh tingkat pesanan promo terhadap tren harga nilai tiket (AOV)</p></div>
+            <div className="h-[250px] sm:h-[280px] w-full select-none">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={merchant.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                  <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
+                  <YAxis yAxisId="left" hide domain={['auto', 'auto']} />
+                  <YAxis yAxisId="right" orientation="right" hide domain={[0, 100]} />
+                  <Tooltip content={<AovTooltip />} cursor={{ fill: 'transparent' }} />
+                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} />
+                  <Line yAxisId="left" type="monotone" dataKey="aov" name="AOV (Rupiah)" stroke="#FF7A00" strokeWidth={3} dot={{ fill: '#FF7A00', r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }}>
+                    <LabelList dataKey="aov" position="top" formatter={formatShorthandNum} style={{ fill: '#FF7A00', fontSize: 11, fontWeight: '900' }} dy={-10} />
+                  </Line>
+                  <Line yAxisId="right" type="monotone" dataKey="promoUsageRate" name="Rasio Promo (%)" stroke="#10B981" strokeWidth={3} strokeDasharray="5 5" dot={{ fill: '#10B981', r: 5 }} activeDot={{ r: 7 }}>
+                    <LabelList dataKey="promoUsageRate" position="bottom" formatter={(v) => v + '%'} style={{ fill: '#10B981', fontSize: 11, fontWeight: '900' }} dy={10} />
+                  </Line>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
+            <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Konsistensi Jam Operasional Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Total durasi jam buka toko aktif (Online Hours) secara akumulatif per bulan</p></div>
+            <div className="h-[250px] sm:h-[280px] w-full select-none">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={merchant.historyChart} margin={{ top: 30, right: 15, left: 15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                  <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
+                  <YAxis hide />
+                  <Tooltip formatter={(value) => [`${value} Jam`, 'Online Hours']} cursor={{ stroke: '#F3F4F6', strokeWidth: 2 }} />
+                  <Line type="monotone" dataKey="onlineHours" name="Jam Buka Aktif" stroke="#3B82F6" strokeWidth={4} dot={{ r: 5, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }}>
+                    <LabelList dataKey="onlineHours" position="top" formatter={(v) => `${v}h`} style={{ fill: '#3B82F6', fontSize: 11, fontWeight: '900' }} dy={-10} />
+                  </Line>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
+            <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Distribusi Range Harga (Heatmap)</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Porsi 100% kelompok harga tiket yang paling banyak dibeli pelanggan</p></div>
+            <div className="h-[250px] sm:h-[280px] w-full select-none">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={merchant.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} dy={10} />
+                  <YAxis tickFormatter={(v) => `${v}%`} stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
+                  <Tooltip content={<PriceRangeTooltip />} cursor={{ fill: 'transparent' }} />
+                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
+                  <Bar dataKey="co0_20_pct" name="0 - 20rb" stackId="range" fill="#FBBF24" barSize={40} radius={[0, 0, 0, 0]}>
+                    <LabelList dataKey="co0_20_pct" content={(p) => renderPercentLabel(p, '#ffffff')} />
+                  </Bar>
+                  <Bar dataKey="co20_40_pct" name="20rb - 40rb" stackId="range" fill="#F97316" barSize={40}>
+                    <LabelList dataKey="co20_40_pct" content={(p) => renderPercentLabel(p, '#ffffff')} />
+                  </Bar>
+                  <Bar dataKey="co40_60_pct" name="40rb - 60rb" stackId="range" fill="#EF4444" barSize={40}>
+                    <LabelList dataKey="co40_60_pct" content={(p) => renderPercentLabel(p, '#ffffff')} />
+                  </Bar>
+                  <Bar dataKey="co60_100_pct" name="60rb - 100rb" stackId="range" fill="#A855F7" barSize={40}>
+                    <LabelList dataKey="co60_100_pct" content={(p) => renderPercentLabel(p, '#ffffff')} />
+                  </Bar>
+                  <Bar dataKey="co100_plus_pct" name="> 100rb" stackId="range" fill="#3B82F6" barSize={40} radius={[6, 6, 0, 0]}>
+                    <LabelList dataKey="co100_plus_pct" content={(p) => renderPercentLabel(p, '#ffffff')} />
+                    <LabelList dataKey="co100_plus_pct" content={renderTotalRangeLabel} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+        </div>
+
+        {/* --- 5. INFO OWNER & LOKASI (BOTTOM) --- */}
+        <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 mx-2 sm:mx-0">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
             <div className="p-2 bg-[#E5F7ED] text-[#00B14F] rounded-lg"><MapPin size={16} /></div>
-            <h4 className="text-sm font-black text-slate-900">Info Owner & Lokasi</h4>
+            <h4 className="text-sm sm:text-base font-black text-slate-900">Informasi Operasional & Kontak Merchant</h4>
           </div>
           
-          <div className="space-y-3.5 flex-1">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Nama Owner</span>
-                <p className="text-xs font-black text-slate-800">{merchant.ownerName || '-'}</p>
-              </div>
-              <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Komisi (Comm)</span>
-                <p className="text-xs font-black text-slate-800">{merchant.baseComm || '-'}</p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Nama Owner / Pemilik</span>
+              <p className="text-sm font-black text-slate-800">{merchant.ownerName || '-'}</p>
+            </div>
+            
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Email Terdaftar</span>
+              <p className="text-sm font-bold text-slate-800 truncate" title={merchant.email}>{merchant.email || '-'}</p>
+            </div>
+            
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Alamat Outlet</span>
+              {merchant.latitude && merchant.longitude && merchant.latitude !== '-' ? (
+                <a href={`https://maps.google.com/?q=$${merchant.latitude},${merchant.longitude}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-700 hover:text-[#00B14F] flex items-start gap-2 group transition-colors">
+                  <span className="underline decoration-dotted group-hover:decoration-solid">{merchant.address || 'Buka di Google Maps'}</span>
+                  <ExternalLink size={14} className="text-slate-400 group-hover:text-[#00B14F] shrink-0 mt-0.5" />
+                </a>
+              ) : (
+                <p className="text-sm font-medium text-slate-700">{merchant.address || '-'}</p>
+              )}
             </div>
 
             <div>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Email Aktif</span>
-              <p className="text-xs font-bold text-slate-800 truncate" title={merchant.email}>{merchant.email || '-'}</p>
-            </div>
-
-            <div className="pt-2 border-t border-slate-50">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Alamat Outlet</span>
-              {merchant.latitude && merchant.longitude && merchant.latitude !== '-' ? (
-                <a 
-                  href={`https://maps.google.com/?q=${merchant.latitude},${merchant.longitude}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="text-xs font-semibold text-slate-700 hover:text-[#00B14F] flex items-start justify-between gap-2 p-2 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#00B14F]/20 group transition-all"
-                >
-                  <span className="underline decoration-dotted group-hover:decoration-solid flex-1">{merchant.address || 'Buka di Google Maps'}</span>
-                  <ExternalLink size={12} className="text-slate-400 group-hover:text-[#00B14F] mt-0.5 shrink-0" />
-                </a>
-              ) : (
-                <div className="p-2 bg-slate-50 rounded-xl border text-xs font-medium text-slate-700">{merchant.address || 'Detail alamat tidak tersedia'}</div>
-              )}
-            </div>
-            
-            <div className="pt-2 border-t border-slate-50 mt-auto">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Kontak WhatsApp</span>
               {merchant.phone && merchant.phone !== '-' && merchant.phone !== '0' ? (
-                <a 
-                  href={getWhatsAppLink(merchant.phone)} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#E5F7ED] text-[#00B14F] hover:bg-[#00B14F] hover:text-white font-black text-xs rounded-xl border border-[#00B14F]/10 transition-all shadow-sm w-full group"
-                >
-                  <MessageCircle size={14} className="transition-transform group-hover:scale-110" />
-                  <span>Hubungi Partner ({merchant.phone})</span>
+                <a href={getWhatsAppLink(merchant.phone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#E5F7ED] text-[#00B14F] hover:bg-[#00B14F] hover:text-white font-black text-xs sm:text-sm rounded-xl border border-[#00B14F]/10 transition-all shadow-sm w-full group">
+                  <MessageCircle size={16} className="transition-transform group-hover:scale-110" /> Hubungi ({merchant.phone})
                 </a>
               ) : (
-                <p className="text-xs font-bold text-slate-400 italic bg-slate-50 p-2 rounded-xl text-center">Kontak telepon tidak tersedia</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* KOLOM 2: MCA STATUS (order-1 di mobile, tampil pertama di bawah chart) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col h-full order-1 md:order-2">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-            <div className="p-2 bg-[#E5F7ED] text-[#00B14F] rounded-lg"><Wallet size={16} /></div>
-            <h4 className="text-sm font-black text-slate-900">Limit & Status MCA</h4>
-          </div>
-          
-          <div className="space-y-4 flex-1 justify-center flex flex-col">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5"><Clock size={13}/> Status Ops</span>
-              {merchant.mcaStatus.toLowerCase() === 'disbursed' ? (
-                <span className="px-2 py-0.5 bg-[#E5F7ED] text-[#00B14F] font-bold text-[10px] rounded-md flex items-center gap-1"><CheckCircle2 size={11}/> Disbursed</span>
-              ) : merchant.mcaStatus.toLowerCase().includes('pending') ? (
-                <span className="px-2 py-0.5 bg-amber-50 text-amber-600 font-bold text-[10px] rounded-md">Pending</span>
-              ) : (
-                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 font-bold text-[10px] rounded-md">No Status</span>
-              )}
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5"><Calendar size={13}/> Tanggal Cair</span>
-              <span className="text-xs font-black text-slate-800">{merchant.mcaDate || '-'}</span>
-            </div>
-
-            <div className="flex justify-between items-center pt-2 border-t border-slate-50">
-              <span className="text-xs font-bold text-slate-500">Limit Tersedia (AL)</span>
-              <span className="text-base font-black text-[#00B14F]">{formatRupiah(merchant.mcaAmount)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KOLOM 3: CAMPAIGN MIX (⚡ REVISI BOX SCROLL: Anti-Ceklis Kosong & Dilengkapi Scrollbar) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 flex flex-col h-full order-2 md:order-3">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-            <div className="p-2 bg-[#FFF2E5] text-[#FF7A00] rounded-lg"><Megaphone size={16} /></div>
-            <h4 className="text-sm font-black text-slate-900">Paket Promo Aktif</h4>
-          </div>
-          
-          <div className="flex-1 flex flex-col">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Daftar Ikut Serta Campaign</p>
-            
-            {/* Mengunci tinggi maksimal kotak di 150px dan memberikan scrollbar vertikal otomatis */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs font-mono text-slate-700 leading-relaxed max-h-[150px] overflow-y-auto space-y-1.5">
-              {merchant.campaignRaw && merchant.campaignRaw !== '-' && merchant.campaignRaw !== '0' ? (
-                merchant.campaignRaw
-                  .split('|')
-                  // Logika Filter untuk menendang spasi/ceklis kosong keluar dari tabel
-                  .filter(c => c && c.trim() !== '') 
-                  .map((c, i) => (
-                    <div key={i} className="break-words font-semibold text-slate-700">
-                      ✅ {c.trim()}
-                    </div>
-                  ))
-              ) : (
-                <span className="text-slate-400 italic">Merchant tidak mengikuti program promosi apapun.</span>
+                <p className="text-xs font-bold text-slate-400 italic bg-slate-50 p-2.5 rounded-xl text-center border border-slate-100">Kontak telepon tidak tersedia</p>
               )}
             </div>
           </div>
