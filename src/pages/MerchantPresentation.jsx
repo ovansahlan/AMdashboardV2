@@ -31,9 +31,6 @@ const getShortAmName = (fullName) => {
   return fullName.split(' ')[0];
 };
 
-// =========================================================================
-// ⚡ FUNGSI FORMATTER UNTUK LABEL DI ATAS BAR (M, K, B)
-// =========================================================================
 const formatShorthandNum = (num) => {
   if (!num || num === 0) return '';
   if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`;
@@ -42,7 +39,6 @@ const formatShorthandNum = (num) => {
   return `${num}`;
 };
 
-// Label di dalam batang grafik tumpuk (Sembunyi jika bar terlalu tipis)
 const renderInnerBarLabel = (props, textColor) => {
   const { x, y, width, height, value } = props;
   if (!value || height < 18) return null; 
@@ -53,7 +49,6 @@ const renderInnerBarLabel = (props, textColor) => {
   );
 };
 
-// Label melayang di pucuk atas bar
 const renderTopBarLabel = (props, color) => {
   const { x, y, width, value } = props;
   if (!value) return null;
@@ -171,7 +166,14 @@ export default function MerchantPresentation() {
         const onlineHours = parseNumber(row[29]);
         const adsOrders = parseNumber(row[21]); 
         const bsWithAds = parseNumber(row[22]);     
-        const photoPenetration = row[28] ? row[28].toString().trim() : '-';       
+        const photoPenetration = row[28] ? row[28].toString().trim() : '-';
+        
+        // --- ⚡ MAPPING RANGE HARGA (Kolom X s/d AB) ---
+        const co0_20 = parseNumber(row[23]);
+        const co20_40 = parseNumber(row[24]);
+        const co40_60 = parseNumber(row[25]);
+        const co60_100 = parseNumber(row[26]);
+        const co100_plus = parseNumber(row[27]);
 
         const promoUsageRate = totalOrders > 0 ? Math.round((promoOrders / totalOrders) * 100) : 0;
         const totalAds = adsMobile + adsWeb + adsDirect;
@@ -192,7 +194,8 @@ export default function MerchantPresentation() {
         return {
           month: monthLabel, basketSize, merchantInvestment, netSales,
           completedOrders, totalOrders, uncompletedOrders, adsOrders, aov, promoUsageRate, onlineHours,
-          baseComm: histBaseComm, mfp, mfc, totalAds, totalCpoGms, photoPenetration
+          baseComm: histBaseComm, mfp, mfc, totalAds, totalCpoGms, photoPenetration,
+          co0_20, co20_40, co40_60, co60_100, co100_plus // Lempar data Range Harga
         };
       });
     }
@@ -225,10 +228,19 @@ export default function MerchantPresentation() {
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[320px]">
           <p className="font-black text-slate-900 text-sm text-center border-b border-slate-100 pb-3 mb-4 tracking-wide uppercase">{label}</p>
           <div className="space-y-3.5">
-            <div className="flex justify-between items-center text-sm"><span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)</span><span className="font-mono font-black text-[#00B14F] text-base">{formatRupiah(data.netSales)}</span></div>
-            <div className="flex justify-between items-center text-sm"><span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)</span><span className="font-mono font-black text-[#FF7A00] text-base">{formatRupiah(data.merchantInvestment)}</span></div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)</span>
+              <span className="font-mono font-black text-[#00B14F] text-base">{formatRupiah(data.netSales)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)</span>
+              <span className="font-mono font-black text-[#FF7A00] text-base">{formatRupiah(data.merchantInvestment)}</span>
+            </div>
           </div>
-          <div className="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50 -mx-2 px-4 py-3 rounded-xl"><span className="text-slate-500 font-bold text-xs uppercase tracking-widest">Gross Basket Size</span><span className="font-mono font-black text-slate-900 text-lg">{formatRupiah(data.basketSize)}</span></div>
+          <div className="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50 -mx-2 px-4 py-3 rounded-xl">
+            <span className="text-slate-500 font-bold text-xs uppercase tracking-widest">Gross Basket Size</span>
+            <span className="font-mono font-black text-slate-900 text-lg">{formatRupiah(data.basketSize)}</span>
+          </div>
         </div>
       );
     }
@@ -239,7 +251,7 @@ export default function MerchantPresentation() {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[320px] space-y-4 text-xs">
+        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[340px] space-y-4">
           <p className="font-black text-slate-900 border-b border-slate-100 pb-3 text-center text-sm uppercase tracking-wide">Breakdown Investasi: {label}</p>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between items-center"><span className="font-bold text-slate-600">1. Komisi Dasar</span><span className="font-mono font-black text-slate-700">{formatRupiah(data.baseComm)}</span></div>
@@ -248,7 +260,9 @@ export default function MerchantPresentation() {
             <div className="flex justify-between items-center"><span className="font-bold text-amber-600">4. Iklan (Ads)</span><span className="font-mono font-black text-amber-600">{formatRupiah(data.totalAds)}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-blue-500">5. CPO & GMS</span><span className="font-mono font-black text-blue-500">{formatRupiah(data.totalCpoGms)}</span></div>
           </div>
-          <div className="pt-4 border-t border-slate-200 flex justify-between items-center font-black text-slate-900 bg-slate-50 -mx-2 px-4 py-3 rounded-xl"><span className="text-xs uppercase tracking-widest text-slate-500">Total Alokasi</span><span className="font-mono text-[#FF7A00] text-lg">{formatRupiah(data.merchantInvestment)}</span></div>
+          <div className="pt-4 border-t border-slate-200 flex justify-between items-center font-black text-slate-900 bg-slate-50 -mx-2 px-4 py-3 rounded-xl">
+            <span className="text-xs uppercase tracking-widest text-slate-500">Total Alokasi</span><span className="font-mono text-[#FF7A00] text-lg">{formatRupiah(data.merchantInvestment)}</span>
+          </div>
         </div>
       );
     }
@@ -271,7 +285,10 @@ export default function MerchantPresentation() {
             <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-red-500"></div> Batal/Gagal</span><span className="font-black text-red-500 text-base">{uncompleted}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Order Iklan</span><span className="font-black text-blue-500 text-base">{adsOrders}</span></div>
           </div>
-          <div className="pt-4 mt-4 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-2 px-3 py-3 rounded-xl flex justify-between items-center text-xs"><span>Masuk: <strong className="text-slate-800 text-sm">{total}</strong></span><span>Rasio Sukses: <strong className="text-[#00B14F] text-sm">{completionRate}%</strong></span></div>
+          <div className="pt-4 mt-4 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-2 px-3 py-3 rounded-xl flex justify-between items-center text-xs">
+            <span>Masuk: <strong className="text-slate-800 text-sm">{total}</strong></span>
+            <span>Rasio Sukses: <strong className="text-[#00B14F] text-sm">{completionRate}%</strong></span>
+          </div>
         </div>
       );
     }
@@ -295,10 +312,38 @@ export default function MerchantPresentation() {
     return null;
   };
 
+  // ⚡ TOOLTIP KHUSUS RANGE HARGA HEATMAP
+  const PriceRangeTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      let total = 0;
+      payload.forEach(p => total += p.value);
+      return (
+        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[300px]">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-3 mb-4 text-center text-sm uppercase tracking-wide">Distribusi Harga: {label}</p>
+          <div className="space-y-3.5 text-sm">
+            {payload.map((p, i) => (
+              <div key={i} className="flex justify-between items-center">
+                <span className="font-bold text-slate-600 flex items-center gap-2.5">
+                  <div className="w-3 h-3 rounded-full" style={{backgroundColor: p.color}}></div> {p.name}
+                </span>
+                <span className="font-black" style={{color: p.color}}>{p.value} <span className="text-xs font-semibold text-slate-400">Order</span></span>
+              </div>
+            ))}
+          </div>
+          <div className="pt-4 mt-4 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-2 px-4 py-3 rounded-xl flex justify-between items-center text-xs">
+            <span>Total Transaksi Valid</span>
+            <strong className="text-slate-800 text-sm">{total}</strong>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="bg-[#F7F9FA] min-h-full space-y-4 sm:space-y-6 -mx-2 sm:mx-0 select-none [&_*]:outline-none pb-12">
       
-      {/* 1. HEADER & SEARCHABLE DROPDOWN */}
+      {/* HEADER SECTION */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:flex-row justify-between lg:items-center gap-4 relative mx-2 sm:mx-0 z-40">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-[#00B14F]/10"><MonitorPlay size={20} className="text-white sm:w-6 sm:h-6" /></div>
@@ -328,7 +373,7 @@ export default function MerchantPresentation() {
       {profile ? (
         <div className="space-y-4 sm:space-y-6 animate-fadeIn">
 
-          {/* 2. PROFIL MERCHANT & PROMO AKTIF */}
+          {/* 1. PROFIL MERCHANT & PROMO AKTIF */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mx-2 sm:mx-0">
             <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 md:col-span-2 flex flex-col justify-between">
               <div>
@@ -392,7 +437,7 @@ export default function MerchantPresentation() {
             </div>
           </div>
           
-          {/* 3. 5 KPI CARDS */}
+          {/* 2. 5 KPI CARDS */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mx-2 sm:mx-0">
             <div className="bg-white p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
               <div className="p-3 bg-[#E5F7ED] text-[#00B14F] rounded-xl shrink-0"><ShoppingCart size={20} /></div>
@@ -416,7 +461,7 @@ export default function MerchantPresentation() {
             </div>
           </div>
 
-          {/* 4. GRAFIK FINANSIAL DENGAN LABEL ANGKA */}
+          {/* 3. GRAFIK FINANSIAL UTAMA */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
             <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Struktur Omset Bersih vs Investasi</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Komparasi Penjualan Bersih (Net Sales) vs Total Potongan Investasi Toko</p></div>
@@ -479,9 +524,8 @@ export default function MerchantPresentation() {
             </div>
           </div>
 
-          {/* 5. GRAFIK OPERASIONAL & AOV DUAL LINE */}
+          {/* 4. GRAFIK OPERASIONAL & AOV DUAL LINE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
-            
             <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Efisiensi Order Bulanan</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Selesai vs Batal, disandingkan dengan sumbangan Order dari Iklan</p></div>
               <div className="h-[250px] sm:h-[280px] w-full select-none">
@@ -503,7 +547,6 @@ export default function MerchantPresentation() {
                       <LabelList dataKey="adsOrders" content={(p) => renderTopBarLabel(p, '#3B82F6')} />
                     </Bar>
 
-                    {/* Garis transparan untuk meletakkan Label Nilai Total Order di puncak batang */}
                     <Line type="monotone" dataKey="totalOrders" stroke="transparent" dot={false} activeDot={false} legendType="none" tooltipType="none">
                       <LabelList dataKey="totalOrders" position="top" formatter={(v) => v > 0 ? formatShorthandNum(v) : ''} style={{ fill: '#6B7280', fontSize: 11, fontWeight: '900' }} dy={-5} />
                     </Line>
@@ -535,11 +578,11 @@ export default function MerchantPresentation() {
               </div>
             </div>
 
-            <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 lg:col-span-2">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Konsistensi Jam Operasional Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Total durasi jam buka toko aktif (Online Hours) secara akumulatif per bulan</p></div>
-              <div className="h-[200px] sm:h-[260px] w-full select-none">
+              <div className="h-[250px] sm:h-[280px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={profile.historyChart} margin={{ top: 30, right: 20, left: 20, bottom: 0 }}>
+                  <LineChart data={profile.historyChart} margin={{ top: 30, right: 15, left: 15, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
                     <YAxis hide />
@@ -548,6 +591,39 @@ export default function MerchantPresentation() {
                       <LabelList dataKey="onlineHours" position="top" formatter={(v) => `${v}h`} style={{ fill: '#3B82F6', fontSize: 11, fontWeight: '900' }} dy={-10} />
                     </Line>
                   </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* ⚡ 5. CHART BARU: DISTRIBUSI RANGE HARGA TIKET (HEATMAP STACKED BAR) */}
+            <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
+              <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Distribusi Range Harga Pesanan</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Komposisi kelompok harga tiket yang paling banyak dibeli pelanggan</p></div>
+              <div className="h-[250px] sm:h-[280px] w-full select-none">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={profile.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
+                    <YAxis hide />
+                    <Tooltip content={<PriceRangeTooltip />} cursor={{ fill: 'transparent' }} />
+                    <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
+                    
+                    {/* Urutan warna ala Heatmap: Hijau -> Biru -> Kuning -> Merah -> Ungu */}
+                    <Bar dataKey="co0_20" name="0 - 20rb" stackId="range" fill="#34D399" barSize={36} radius={[0, 0, 6, 6]}>
+                      <LabelList dataKey="co0_20" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="co20_40" name="20rb - 40rb" stackId="range" fill="#3B82F6" barSize={36}>
+                      <LabelList dataKey="co20_40" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="co40_60" name="40rb - 60rb" stackId="range" fill="#FBBF24" barSize={36}>
+                      <LabelList dataKey="co40_60" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="co60_100" name="60rb - 100rb" stackId="range" fill="#F87171" barSize={36}>
+                      <LabelList dataKey="co60_100" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="co100_plus" name="> 100rb" stackId="range" fill="#8B5CF6" barSize={36} radius={[6, 6, 0, 0]}>
+                      <LabelList dataKey="co100_plus" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>

@@ -386,7 +386,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl w-full sm:w-auto">
           <Filter size={16} className="text-[#00B14F] shrink-0" />
           <span className="text-xs sm:text-sm font-semibold text-slate-600 shrink-0">AM: </span>
-          <select value={selectedAm} onChange={(e) => setSelectedAm(e.target.value)} className="text-xs sm:text-sm font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer w-full text-left [text-align-last:right]">
+          <select value={selectedAm} onChange={(e) => setSelectedAm(e.target.value)} className="text-xs sm:text-sm font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer w-full text-left [text-align-last:center]">
             {amList.map((am) => <option key={am} value={am}>{am === 'All' ? 'Semua AM' : am}</option>)}
           </select>
         </div>
