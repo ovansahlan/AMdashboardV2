@@ -31,6 +31,39 @@ const getShortAmName = (fullName) => {
   return fullName.split(' ')[0];
 };
 
+// =========================================================================
+// ⚡ FUNGSI FORMATTER UNTUK LABEL DI ATAS BAR (M, K, B)
+// =========================================================================
+const formatShorthandNum = (num) => {
+  if (!num || num === 0) return '';
+  if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(0)}K`;
+  return `${num}`;
+};
+
+// Label di dalam batang grafik tumpuk (Sembunyi jika bar terlalu tipis)
+const renderInnerBarLabel = (props, textColor) => {
+  const { x, y, width, height, value } = props;
+  if (!value || height < 18) return null; 
+  return (
+    <text x={x + width / 2} y={y + height / 2} fill={textColor || "#fff"} fontSize={9} fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>
+      {formatShorthandNum(value)}
+    </text>
+  );
+};
+
+// Label melayang di pucuk atas bar
+const renderTopBarLabel = (props, color) => {
+  const { x, y, width, value } = props;
+  if (!value) return null;
+  return (
+    <text x={x + width / 2} y={y - 8} fill={color} fontSize={10} fontWeight="900" textAnchor="middle" style={{ pointerEvents: 'none' }}>
+      {formatShorthandNum(value)}
+    </text>
+  );
+};
+
 export default function MerchantPresentation() {
   const { data: dashboardData, isLoading: loadDash, error: errDash } = useSheetData('getDashboard');
   const { data: historisData, isLoading: loadHist, error: errHist } = useSheetData('getHistoris');
@@ -182,10 +215,7 @@ export default function MerchantPresentation() {
   if (isLoading) return <div className="flex flex-col justify-center min-h-[70vh] items-center gap-3"><Loader2 className="animate-spin text-[#00B14F]" size={40} /><p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Membangun Struktur Pitching Deck...</p></div>;
   if (anyError) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-xs flex items-center gap-2"><AlertCircle size={16} /><span>Gagal memuat data: {anyError.toString()}</span></div>;
 
-  // =========================================================================
-  // ⚡ REFINEMENT: TOOLTIPS SUPER RAPI (ALIGNMENT & SPACING)
-  // =========================================================================
-
+  // TOOLTIPS
   const HistoryTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -195,19 +225,10 @@ export default function MerchantPresentation() {
         <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[320px]">
           <p className="font-black text-slate-900 text-sm text-center border-b border-slate-100 pb-3 mb-4 tracking-wide uppercase">{label}</p>
           <div className="space-y-3.5">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)</span>
-              <span className="font-mono font-black text-[#00B14F] text-base">{formatRupiah(data.netSales)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)</span>
-              <span className="font-mono font-black text-[#FF7A00] text-base">{formatRupiah(data.merchantInvestment)}</span>
-            </div>
+            <div className="flex justify-between items-center text-sm"><span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)</span><span className="font-mono font-black text-[#00B14F] text-base">{formatRupiah(data.netSales)}</span></div>
+            <div className="flex justify-between items-center text-sm"><span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)</span><span className="font-mono font-black text-[#FF7A00] text-base">{formatRupiah(data.merchantInvestment)}</span></div>
           </div>
-          <div className="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50 -mx-2 px-4 py-3 rounded-xl">
-            <span className="text-slate-500 font-bold text-xs uppercase tracking-widest">Gross Basket Size</span>
-            <span className="font-mono font-black text-slate-900 text-lg">{formatRupiah(data.basketSize)}</span>
-          </div>
+          <div className="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50 -mx-2 px-4 py-3 rounded-xl"><span className="text-slate-500 font-bold text-xs uppercase tracking-widest">Gross Basket Size</span><span className="font-mono font-black text-slate-900 text-lg">{formatRupiah(data.basketSize)}</span></div>
         </div>
       );
     }
@@ -218,7 +239,7 @@ export default function MerchantPresentation() {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[340px] space-y-4">
+        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[320px] space-y-4 text-xs">
           <p className="font-black text-slate-900 border-b border-slate-100 pb-3 text-center text-sm uppercase tracking-wide">Breakdown Investasi: {label}</p>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between items-center"><span className="font-bold text-slate-600">1. Komisi Dasar</span><span className="font-mono font-black text-slate-700">{formatRupiah(data.baseComm)}</span></div>
@@ -227,9 +248,7 @@ export default function MerchantPresentation() {
             <div className="flex justify-between items-center"><span className="font-bold text-amber-600">4. Iklan (Ads)</span><span className="font-mono font-black text-amber-600">{formatRupiah(data.totalAds)}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-blue-500">5. CPO & GMS</span><span className="font-mono font-black text-blue-500">{formatRupiah(data.totalCpoGms)}</span></div>
           </div>
-          <div className="pt-4 border-t border-slate-200 flex justify-between items-center font-black text-slate-900 bg-slate-50 -mx-2 px-4 py-3 rounded-xl">
-            <span className="text-xs uppercase tracking-widest text-slate-500">Total Alokasi</span><span className="font-mono text-[#FF7A00] text-lg">{formatRupiah(data.merchantInvestment)}</span>
-          </div>
+          <div className="pt-4 border-t border-slate-200 flex justify-between items-center font-black text-slate-900 bg-slate-50 -mx-2 px-4 py-3 rounded-xl"><span className="text-xs uppercase tracking-widest text-slate-500">Total Alokasi</span><span className="font-mono text-[#FF7A00] text-lg">{formatRupiah(data.merchantInvestment)}</span></div>
         </div>
       );
     }
@@ -252,10 +271,7 @@ export default function MerchantPresentation() {
             <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-red-500"></div> Batal/Gagal</span><span className="font-black text-red-500 text-base">{uncompleted}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Order Iklan</span><span className="font-black text-blue-500 text-base">{adsOrders}</span></div>
           </div>
-          <div className="pt-4 mt-4 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-2 px-3 py-3 rounded-xl flex justify-between items-center text-xs">
-            <span>Masuk: <strong className="text-slate-800 text-sm">{total}</strong></span>
-            <span>Rasio Sukses: <strong className="text-[#00B14F] text-sm">{completionRate}%</strong></span>
-          </div>
+          <div className="pt-4 mt-4 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-2 px-3 py-3 rounded-xl flex justify-between items-center text-xs"><span>Masuk: <strong className="text-slate-800 text-sm">{total}</strong></span><span>Rasio Sukses: <strong className="text-[#00B14F] text-sm">{completionRate}%</strong></span></div>
         </div>
       );
     }
@@ -362,10 +378,7 @@ export default function MerchantPresentation() {
 
             <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
               <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-                 <div>
-                    <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2"><Award size={18} className="text-[#FF7A00]"/> Promo Aktif</h3>
-                    <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 font-medium">Partisipasi promo resto saat ini</p>
-                 </div>
+                 <div><h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2"><Award size={18} className="text-[#FF7A00]"/> Promo Aktif</h3><p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 font-medium">Partisipasi promo resto saat ini</p></div>
               </div>
               <div className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl p-3 flex flex-col gap-2.5 items-start overflow-y-auto max-h-[100px] sm:max-h-[130px]">
                 {profile.campaignRaw && profile.campaignRaw !== '-' && profile.campaignRaw !== '0' ? (
@@ -374,9 +387,7 @@ export default function MerchantPresentation() {
                       <CheckCircle2 size={16} className="text-[#00B14F] shrink-0"/> <span className="truncate">{c.trim()}</span>
                     </span>
                   ))
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400 italic text-xs font-semibold text-center">Tidak ada promo aktif.</div>
-                )}
+                ) : <div className="w-full h-full flex items-center justify-center text-slate-400 italic text-xs font-semibold text-center">Tidak ada promo aktif.</div>}
               </div>
             </div>
           </div>
@@ -405,22 +416,29 @@ export default function MerchantPresentation() {
             </div>
           </div>
 
-          {/* 4. GRAFIK FINANSIAL (CENTERED & SPACING REFINED) */}
+          {/* 4. GRAFIK FINANSIAL DENGAN LABEL ANGKA */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
             <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Struktur Omset Bersih vs Investasi</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Komparasi Penjualan Bersih (Net Sales) vs Total Potongan Investasi Toko</p></div>
               {profile.historyChart && profile.historyChart.length > 0 ? (
                 <div className="h-[280px] sm:h-[320px] w-full flex justify-center select-none">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={profile.historyChart} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                    <ComposedChart data={profile.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                       <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} dy={10} />
                       <YAxis hide />
                       <Tooltip content={<HistoryTooltip />} cursor={{ fill: 'transparent' }} />
                       <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
-                      <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 6, 6]} barSize={36} />
-                      <Bar dataKey="merchantInvestment" name="Total Investasi" stackId="a" fill="#E5E7EB" radius={[6, 6, 0, 0]} barSize={36} />
-                      <Line type="monotone" dataKey="basketSize" name="Gross Sales" stroke="#3B82F6" strokeWidth={3} dot={{ r: 5, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} />
+                      
+                      <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 6, 6]} barSize={36}>
+                        <LabelList dataKey="netSales" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                      </Bar>
+                      <Bar dataKey="merchantInvestment" name="Total Investasi" stackId="a" fill="#E5E7EB" radius={[6, 6, 0, 0]} barSize={36}>
+                        <LabelList dataKey="merchantInvestment" content={(p) => renderInnerBarLabel(p, '#6B7280')} />
+                      </Bar>
+                      <Line type="monotone" dataKey="basketSize" name="Gross Sales" stroke="#3B82F6" strokeWidth={3} dot={{ r: 5, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }}>
+                        <LabelList dataKey="basketSize" position="top" formatter={formatShorthandNum} style={{ fill: '#3B82F6', fontSize: 11, fontWeight: '900' }} dy={-10} />
+                      </Line>
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -432,17 +450,28 @@ export default function MerchantPresentation() {
               {profile.historyChart && profile.historyChart.length > 0 ? (
                 <div className="h-[280px] sm:h-[320px] w-full flex justify-center select-none">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={profile.historyChart} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                    <BarChart data={profile.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                       <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} dy={10} />
                       <YAxis hide />
                       <Tooltip content={<InvestmentTooltip />} cursor={{ fill: 'transparent' }} />
                       <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
-                      <Bar dataKey="baseComm" name="Base Comm" stackId="inv" fill="#94A3B8" barSize={36} radius={[0, 0, 6, 6]} />
-                      <Bar dataKey="mfp" name="Promo Patungan" stackId="inv" fill="#A855F7" barSize={36} />
-                      <Bar dataKey="mfc" name="Diskon Coret" stackId="inv" fill="#EC4899" barSize={36} />
-                      <Bar dataKey="totalAds" name="Iklan (GrabAds)" stackId="inv" fill="#F97316" barSize={36} />
-                      <Bar dataKey="totalCpoGms" name="CPO & GMS" stackId="inv" fill="#3B82F6" barSize={36} radius={[6, 6, 0, 0]} />
+                      
+                      <Bar dataKey="baseComm" name="Base Comm" stackId="inv" fill="#94A3B8" barSize={36} radius={[0, 0, 6, 6]}>
+                        <LabelList dataKey="baseComm" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                      </Bar>
+                      <Bar dataKey="mfp" name="Promo Patungan" stackId="inv" fill="#A855F7" barSize={36}>
+                        <LabelList dataKey="mfp" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                      </Bar>
+                      <Bar dataKey="mfc" name="Diskon Coret" stackId="inv" fill="#EC4899" barSize={36}>
+                        <LabelList dataKey="mfc" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                      </Bar>
+                      <Bar dataKey="totalAds" name="Iklan (GrabAds)" stackId="inv" fill="#F97316" barSize={36}>
+                        <LabelList dataKey="totalAds" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                      </Bar>
+                      <Bar dataKey="totalCpoGms" name="CPO & GMS" stackId="inv" fill="#3B82F6" barSize={36} radius={[6, 6, 0, 0]}>
+                        <LabelList dataKey="totalCpoGms" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -457,16 +486,28 @@ export default function MerchantPresentation() {
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Efisiensi Order Bulanan</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Selesai vs Batal, disandingkan dengan sumbangan Order dari Iklan</p></div>
               <div className="h-[250px] sm:h-[280px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={profile.historyChart} margin={{ top: 10, right: 10, left: 10, bottom: 0 }} barGap={8}>
+                  <ComposedChart data={profile.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }} barGap={8}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
                     <YAxis hide />
                     <Tooltip content={<OrderTooltip />} cursor={{ fill: 'transparent' }} />
                     <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
-                    <Bar dataKey="completedOrders" name="Selesai (Completed)" stackId="order" fill="#00B14F" barSize={30} radius={[0, 0, 6, 6]} />
-                    <Bar dataKey="uncompletedOrders" name="Batal / Gagal" stackId="order" fill="#EF4444" barSize={30} radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="adsOrders" name="Order via GrabAds" fill="#3B82F6" barSize={30} radius={[6, 6, 0, 0]} />
-                  </BarChart>
+                    
+                    <Bar dataKey="completedOrders" name="Selesai (Completed)" stackId="order" fill="#00B14F" barSize={30} radius={[0, 0, 6, 6]}>
+                      <LabelList dataKey="completedOrders" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="uncompletedOrders" name="Batal / Gagal" stackId="order" fill="#EF4444" barSize={30} radius={[6, 6, 0, 0]}>
+                      <LabelList dataKey="uncompletedOrders" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
+                    </Bar>
+                    <Bar dataKey="adsOrders" name="Order via GrabAds" fill="#3B82F6" barSize={30} radius={[6, 6, 0, 0]}>
+                      <LabelList dataKey="adsOrders" content={(p) => renderTopBarLabel(p, '#3B82F6')} />
+                    </Bar>
+
+                    {/* Garis transparan untuk meletakkan Label Nilai Total Order di puncak batang */}
+                    <Line type="monotone" dataKey="totalOrders" stroke="transparent" dot={false} activeDot={false} legendType="none" tooltipType="none">
+                      <LabelList dataKey="totalOrders" position="top" formatter={(v) => v > 0 ? formatShorthandNum(v) : ''} style={{ fill: '#6B7280', fontSize: 11, fontWeight: '900' }} dy={-5} />
+                    </Line>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -475,15 +516,20 @@ export default function MerchantPresentation() {
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Korelasi AOV & Rasio Promo</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Pengaruh tingkat pesanan promo terhadap tren harga nilai tiket (AOV)</p></div>
               <div className="h-[250px] sm:h-[280px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={profile.historyChart} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                  <ComposedChart data={profile.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
                     <YAxis yAxisId="left" hide domain={['auto', 'auto']} />
                     <YAxis yAxisId="right" orientation="right" hide domain={[0, 100]} />
                     <Tooltip content={<AovTooltip />} cursor={{ fill: 'transparent' }} />
-                    <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
-                    <Line yAxisId="left" type="monotone" dataKey="aov" name="AOV (Rupiah)" stroke="#FF7A00" strokeWidth={3} dot={{ fill: '#FF7A00', r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} />
-                    <Line yAxisId="right" type="monotone" dataKey="promoUsageRate" name="Rasio Promo (%)" stroke="#10B981" strokeWidth={3} strokeDasharray="5 5" dot={{ fill: '#10B981', r: 5 }} activeDot={{ r: 7 }} />
+                    <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} />
+                    
+                    <Line yAxisId="left" type="monotone" dataKey="aov" name="AOV (Rupiah)" stroke="#FF7A00" strokeWidth={3} dot={{ fill: '#FF7A00', r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }}>
+                      <LabelList dataKey="aov" position="top" formatter={formatShorthandNum} style={{ fill: '#FF7A00', fontSize: 11, fontWeight: '900' }} dy={-10} />
+                    </Line>
+                    <Line yAxisId="right" type="monotone" dataKey="promoUsageRate" name="Rasio Promo (%)" stroke="#10B981" strokeWidth={3} strokeDasharray="5 5" dot={{ fill: '#10B981', r: 5 }} activeDot={{ r: 7 }}>
+                      <LabelList dataKey="promoUsageRate" position="bottom" formatter={(v) => v + '%'} style={{ fill: '#10B981', fontSize: 11, fontWeight: '900' }} dy={10} />
+                    </Line>
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
@@ -493,7 +539,7 @@ export default function MerchantPresentation() {
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Konsistensi Jam Operasional Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Total durasi jam buka toko aktif (Online Hours) secara akumulatif per bulan</p></div>
               <div className="h-[200px] sm:h-[260px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={profile.historyChart} margin={{ top: 25, right: 20, left: 20, bottom: 0 }}>
+                  <LineChart data={profile.historyChart} margin={{ top: 30, right: 20, left: 20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
                     <YAxis hide />
