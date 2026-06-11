@@ -49,10 +49,9 @@ const renderInnerBarLabel = (props, textColor) => {
   );
 };
 
-// ⚡ FUNGSI RENDER LABEL PERSEN (Untuk 100% Stacked Bar)
 const renderPercentLabel = (props, textColor) => {
   const { x, y, width, height, value } = props;
-  if (!value || value < 5 || height < 18) return null; // Sembunyikan jika potongannya terlalu tipis (< 5%)
+  if (!value || value < 5 || height < 18) return null; 
   return (
     <text x={x + width / 2} y={y + height / 2} fill={textColor || "#fff"} fontSize={10} fontWeight="900" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>
       {Math.round(value)}%
@@ -60,7 +59,6 @@ const renderPercentLabel = (props, textColor) => {
   );
 };
 
-// ⚡ FUNGSI RENDER TOTAL ORDER DI ATAS BATANG 100% STACKED
 const renderTotalRangeLabel = (props) => {
   const { x, y, width, payload } = props;
   if (!payload || !payload.totalRange) return null;
@@ -190,7 +188,6 @@ export default function MerchantPresentation() {
         const bsWithAds = parseNumber(row[22]);     
         const photoPenetration = row[28] ? row[28].toString().trim() : '-';
         
-        // --- ⚡ MAPPING & KALKULASI PERSENTASE RANGE HARGA ---
         const co0_20 = parseNumber(row[23]);
         const co20_40 = parseNumber(row[24]);
         const co40_60 = parseNumber(row[25]);
@@ -224,7 +221,6 @@ export default function MerchantPresentation() {
           month: monthLabel, basketSize, merchantInvestment, netSales,
           completedOrders, totalOrders, uncompletedOrders, adsOrders, aov, promoUsageRate, onlineHours,
           baseComm: histBaseComm, mfp, mfc, totalAds, totalCpoGms, photoPenetration,
-          // Ekspor data Range Asli dan Persentase
           co0_20, co20_40, co40_60, co60_100, co100_plus, totalRange,
           co0_20_pct, co20_40_pct, co40_60_pct, co60_100_pct, co100_plus_pct
         };
@@ -249,20 +245,36 @@ export default function MerchantPresentation() {
   if (isLoading) return <div className="flex flex-col justify-center min-h-[70vh] items-center gap-3"><Loader2 className="animate-spin text-[#00B14F]" size={40} /><p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Membangun Struktur Pitching Deck...</p></div>;
   if (anyError) return <div className="p-4 m-4 bg-red-50 text-red-700 font-bold rounded-xl text-xs flex items-center gap-2"><AlertCircle size={16} /><span>Gagal memuat data: {anyError.toString()}</span></div>;
 
-  // TOOLTIPS
+  // =========================================================================
+  // ⚡ REVISI TOOLTIP (UKURAN FONT & PADDING DIPERKECIL AGAR TIDAK OVERLAP)
+  // =========================================================================
+
   const HistoryTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const invPct = data.basketSize > 0 ? ((data.merchantInvestment / data.basketSize) * 100).toFixed(1) : 0;
       const netPct = data.basketSize > 0 ? ((data.netSales / data.basketSize) * 100).toFixed(1) : 0;
       return (
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[320px]">
-          <p className="font-black text-slate-900 text-sm text-center border-b border-slate-100 pb-3 mb-4 tracking-wide uppercase">{label}</p>
-          <div className="space-y-3.5">
-            <div className="flex justify-between items-center text-sm"><span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)</span><span className="font-mono font-black text-[#00B14F] text-base">{formatRupiah(data.netSales)}</span></div>
-            <div className="flex justify-between items-center text-sm"><span className="text-slate-600 font-bold flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)</span><span className="font-mono font-black text-[#FF7A00] text-base">{formatRupiah(data.merchantInvestment)}</span></div>
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[260px] sm:min-w-[280px]">
+          <p className="font-black text-slate-900 text-xs sm:text-sm text-center border-b border-slate-100 pb-2 mb-3 tracking-wide uppercase">{label}</p>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-xs sm:text-sm">
+              <span className="text-slate-600 font-bold flex items-center gap-2.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#00B14F]"></div> Net Sales ({netPct}%)
+              </span>
+              <span className="font-mono font-black text-[#00B14F]">{formatRupiah(data.netSales)}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs sm:text-sm">
+              <span className="text-slate-600 font-bold flex items-center gap-2.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]"></div> Investment ({invPct}%)
+              </span>
+              <span className="font-mono font-black text-[#FF7A00]">{formatRupiah(data.merchantInvestment)}</span>
+            </div>
           </div>
-          <div className="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50 -mx-2 px-4 py-3 rounded-xl"><span className="text-slate-500 font-bold text-xs uppercase tracking-widest">Gross Basket Size</span><span className="font-mono font-black text-slate-900 text-lg">{formatRupiah(data.basketSize)}</span></div>
+          <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl">
+            <span className="text-slate-500 font-bold text-[10px] sm:text-xs uppercase tracking-widest">Gross Basket</span>
+            <span className="font-mono font-black text-slate-900 text-xs sm:text-sm">{formatRupiah(data.basketSize)}</span>
+          </div>
         </div>
       );
     }
@@ -273,16 +285,18 @@ export default function MerchantPresentation() {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[340px] space-y-4">
-          <p className="font-black text-slate-900 border-b border-slate-100 pb-3 text-center text-sm uppercase tracking-wide">Breakdown Investasi: {label}</p>
-          <div className="space-y-3 text-sm">
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[260px] sm:min-w-[300px] space-y-3 text-xs sm:text-sm">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 text-center uppercase tracking-wide">Breakdown Investasi: {label}</p>
+          <div className="space-y-2.5">
             <div className="flex justify-between items-center"><span className="font-bold text-slate-600">1. Komisi Dasar</span><span className="font-mono font-black text-slate-700">{formatRupiah(data.baseComm)}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-purple-600">2. Promo (MFP)</span><span className="font-mono font-black text-purple-600">{formatRupiah(data.mfp)}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-pink-600">3. Diskon (MFC)</span><span className="font-mono font-black text-pink-600">{formatRupiah(data.mfc)}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-amber-600">4. Iklan (Ads)</span><span className="font-mono font-black text-amber-600">{formatRupiah(data.totalAds)}</span></div>
             <div className="flex justify-between items-center"><span className="font-bold text-blue-500">5. CPO & GMS</span><span className="font-mono font-black text-blue-500">{formatRupiah(data.totalCpoGms)}</span></div>
           </div>
-          <div className="pt-4 border-t border-dashed border-slate-200 flex justify-between items-center font-black text-slate-900 bg-slate-50 -mx-2 px-4 py-3 rounded-xl"><span className="text-xs uppercase tracking-widest text-slate-500">Total Alokasi</span><span className="font-mono text-[#FF7A00] text-lg">{formatRupiah(data.merchantInvestment)}</span></div>
+          <div className="pt-3 border-t border-slate-200 flex justify-between items-center font-black text-slate-900 bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl">
+            <span className="text-[10px] sm:text-xs uppercase tracking-widest text-slate-500">Total Alokasi</span><span className="font-mono text-[#FF7A00]">{formatRupiah(data.merchantInvestment)}</span>
+          </div>
         </div>
       );
     }
@@ -298,14 +312,17 @@ export default function MerchantPresentation() {
       const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : 0;
       
       return (
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[280px]">
-          <p className="font-black text-slate-900 border-b border-slate-100 pb-3 mb-4 text-center text-sm uppercase tracking-wide">{label}</p>
-          <div className="space-y-3.5 text-sm">
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#00B14F]"></div> Selesai</span><span className="font-black text-[#00B14F] text-base">{completed}</span></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-red-500"></div> Batal/Gagal</span><span className="font-black text-red-500 text-base">{uncompleted}</span></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Order Iklan</span><span className="font-black text-blue-500 text-base">{adsOrders}</span></div>
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[240px] sm:min-w-[260px]">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 mb-3 text-center text-xs sm:text-sm uppercase tracking-wide">{label}</p>
+          <div className="space-y-3 text-xs sm:text-sm">
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#00B14F]"></div> Selesai</span><span className="font-black text-[#00B14F]">{completed}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div> Batal/Gagal</span><span className="font-black text-red-500">{uncompleted}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div> Order Iklan</span><span className="font-black text-blue-500">{adsOrders}</span></div>
           </div>
-          <div className="pt-4 mt-4 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-2 px-3 py-3 rounded-xl flex justify-between items-center text-xs"><span>Masuk: <strong className="text-slate-800 text-sm">{total}</strong></span><span>Rasio Sukses: <strong className="text-[#00B14F] text-sm">{completionRate}%</strong></span></div>
+          <div className="pt-3 mt-3 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl flex justify-between items-center text-[10px] sm:text-xs">
+            <span>Masuk: <strong className="text-slate-800">{total}</strong></span>
+            <span>Rasio Sukses: <strong className="text-[#00B14F]">{completionRate}%</strong></span>
+          </div>
         </div>
       );
     }
@@ -317,11 +334,11 @@ export default function MerchantPresentation() {
       const aovPayload = payload.find(p => p.dataKey === 'aov');
       const promoPayload = payload.find(p => p.dataKey === 'promoUsageRate');
       return (
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[280px]">
-          <p className="font-black text-slate-900 border-b border-slate-100 pb-3 mb-4 text-center text-sm uppercase tracking-wide">{label}</p>
-          <div className="space-y-4 text-sm">
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#FF7A00]"></div> AOV (Nilai Tiket)</span><span className="font-mono font-black text-[#FF7A00] text-base">{formatRupiah(aovPayload?.value || 0)}</span></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#10B981]"></div> Rasio Promo</span><span className="font-black text-[#10B981] text-base">{promoPayload?.value || 0}%</span></div>
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[240px] sm:min-w-[260px]">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 mb-3 text-center text-xs sm:text-sm uppercase tracking-wide">{label}</p>
+          <div className="space-y-3 text-xs sm:text-sm">
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]"></div> AOV (Harga Rata2)</span><span className="font-mono font-black text-[#FF7A00]">{formatRupiah(aovPayload?.value || 0)}</span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></div> Rasio Promo</span><span className="font-black text-[#10B981]">{promoPayload?.value || 0}%</span></div>
           </div>
         </div>
       );
@@ -329,23 +346,22 @@ export default function MerchantPresentation() {
     return null;
   };
 
-  // ⚡ TOOLTIP KHUSUS HEATMAP RANGE HARGA (Menampilkan Data Asli, Bukan Persen)
   const PriceRangeTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[300px]">
-          <p className="font-black text-slate-900 border-b border-slate-100 pb-3 mb-4 text-center text-sm uppercase tracking-wide">Distribusi Harga: {label}</p>
-          <div className="space-y-3.5 text-sm">
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#FBBF24]"></div> 0 - 20rb</span><span><strong className="text-slate-900">{data.co0_20}</strong> <span className="text-xs font-semibold text-slate-400 ml-1">({data.co0_20_pct.toFixed(1)}%)</span></span></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#F97316]"></div> 20rb - 40rb</span><span><strong className="text-slate-900">{data.co20_40}</strong> <span className="text-xs font-semibold text-slate-400 ml-1">({data.co20_40_pct.toFixed(1)}%)</span></span></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#EF4444]"></div> 40rb - 60rb</span><span><strong className="text-slate-900">{data.co40_60}</strong> <span className="text-xs font-semibold text-slate-400 ml-1">({data.co40_60_pct.toFixed(1)}%)</span></span></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#A855F7]"></div> 60rb - 100rb</span><span><strong className="text-slate-900">{data.co60_100}</strong> <span className="text-xs font-semibold text-slate-400 ml-1">({data.co60_100_pct.toFixed(1)}%)</span></span></div>
-            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-3 h-3 rounded-full bg-[#3B82F6]"></div> {'>'} 100rb</span><span><strong className="text-slate-900">{data.co100_plus}</strong> <span className="text-xs font-semibold text-slate-400 ml-1">({data.co100_plus_pct.toFixed(1)}%)</span></span></div>
+        <div className="bg-white/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-slate-100 min-w-[260px] sm:min-w-[280px]">
+          <p className="font-black text-slate-900 border-b border-slate-100 pb-2 mb-3 text-center text-xs sm:text-sm uppercase tracking-wide">Distribusi Harga: {label}</p>
+          <div className="space-y-3 text-xs sm:text-sm">
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#FBBF24]"></div> 0 - 20rb</span><span><strong className="text-slate-900">{data.co0_20}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co0_20_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#F97316]"></div> 20rb - 40rb</span><span><strong className="text-slate-900">{data.co20_40}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co20_40_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></div> 40rb - 60rb</span><span><strong className="text-slate-900">{data.co40_60}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co40_60_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#A855F7]"></div> 60rb - 100rb</span><span><strong className="text-slate-900">{data.co60_100}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co60_100_pct.toFixed(1)}%)</span></span></div>
+            <div className="flex justify-between items-center"><span className="font-bold text-slate-600 flex items-center gap-2.5"><div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div> {'>'} 100rb</span><span><strong className="text-slate-900">{data.co100_plus}</strong> <span className="text-[10px] sm:text-xs font-semibold text-slate-400 ml-1">({data.co100_plus_pct.toFixed(1)}%)</span></span></div>
           </div>
-          <div className="pt-4 mt-4 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-2 px-4 py-3 rounded-xl flex justify-between items-center text-xs">
+          <div className="pt-3 mt-3 border-t border-slate-100 text-center font-bold text-slate-500 bg-slate-50 -mx-1.5 px-3 py-2 rounded-xl flex justify-between items-center text-[10px] sm:text-xs">
             <span>Total Transaksi Valid</span>
-            <strong className="text-slate-800 text-sm">{data.totalRange}</strong>
+            <strong className="text-slate-800 text-xs sm:text-sm">{data.totalRange}</strong>
           </div>
         </div>
       );
@@ -360,7 +376,10 @@ export default function MerchantPresentation() {
       <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:flex-row justify-between lg:items-center gap-4 relative mx-2 sm:mx-0 z-40">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#00B14F] rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-[#00B14F]/10"><MonitorPlay size={20} className="text-white sm:w-6 sm:h-6" /></div>
-          <div><h1 className="text-base sm:text-xl font-black text-slate-900">Pitching Deck Mode</h1><p className="text-[10px] sm:text-xs font-bold text-[#00B14F] uppercase tracking-wider">Presentasi Kinerja Partner</p></div>
+          <div>
+            <h1 className="text-base sm:text-xl font-black text-slate-900">Review Merchant Performance</h1>
+            <p className="text-[10px] sm:text-xs font-bold text-[#00B14F] uppercase tracking-wider">Presentasi Kinerja Partner</p>
+          </div>
         </div>
 
         <div className="relative w-full lg:w-[400px]">
@@ -488,10 +507,10 @@ export default function MerchantPresentation() {
                       <Tooltip content={<HistoryTooltip />} cursor={{ fill: 'transparent' }} />
                       <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
                       
-                      <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 6, 6]} barSize={40}>
+                      <Bar dataKey="netSales" name="Net Sales" stackId="a" fill="#00B14F" radius={[0, 0, 6, 6]} barSize={36}>
                         <LabelList dataKey="netSales" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
                       </Bar>
-                      <Bar dataKey="merchantInvestment" name="Total Investasi" stackId="a" fill="#E5E7EB" radius={[6, 6, 0, 0]} barSize={40}>
+                      <Bar dataKey="merchantInvestment" name="Total Investasi" stackId="a" fill="#E5E7EB" radius={[6, 6, 0, 0]} barSize={36}>
                         <LabelList dataKey="merchantInvestment" content={(p) => renderInnerBarLabel(p, '#6B7280')} />
                       </Bar>
                       <Line type="monotone" dataKey="basketSize" name="Gross Sales" stroke="#3B82F6" strokeWidth={3} dot={{ r: 5, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }}>
@@ -515,19 +534,19 @@ export default function MerchantPresentation() {
                       <Tooltip content={<InvestmentTooltip />} cursor={{ fill: 'transparent' }} />
                       <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
                       
-                      <Bar dataKey="baseComm" name="Base Comm" stackId="inv" fill="#94A3B8" barSize={40} radius={[0, 0, 6, 6]}>
+                      <Bar dataKey="baseComm" name="Base Comm" stackId="inv" fill="#94A3B8" barSize={36} radius={[0, 0, 6, 6]}>
                         <LabelList dataKey="baseComm" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
                       </Bar>
-                      <Bar dataKey="mfp" name="Promo Patungan" stackId="inv" fill="#A855F7" barSize={40}>
+                      <Bar dataKey="mfp" name="Promo Patungan" stackId="inv" fill="#A855F7" barSize={36}>
                         <LabelList dataKey="mfp" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
                       </Bar>
-                      <Bar dataKey="mfc" name="Diskon Coret" stackId="inv" fill="#EC4899" barSize={40}>
+                      <Bar dataKey="mfc" name="Diskon Coret" stackId="inv" fill="#EC4899" barSize={36}>
                         <LabelList dataKey="mfc" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
                       </Bar>
-                      <Bar dataKey="totalAds" name="Iklan (GrabAds)" stackId="inv" fill="#F97316" barSize={40}>
+                      <Bar dataKey="totalAds" name="Iklan (GrabAds)" stackId="inv" fill="#F97316" barSize={36}>
                         <LabelList dataKey="totalAds" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
                       </Bar>
-                      <Bar dataKey="totalCpoGms" name="CPO & GMS" stackId="inv" fill="#3B82F6" barSize={40} radius={[6, 6, 0, 0]}>
+                      <Bar dataKey="totalCpoGms" name="CPO & GMS" stackId="inv" fill="#3B82F6" barSize={36} radius={[6, 6, 0, 0]}>
                         <LabelList dataKey="totalCpoGms" content={(p) => renderInnerBarLabel(p, '#ffffff')} />
                       </Bar>
                     </BarChart>
@@ -592,16 +611,11 @@ export default function MerchantPresentation() {
               </div>
             </div>
 
-          </div>
-
-          {/* ⚡ 6. BARIS BAWAH: CHART ONLINE HOURS & HEATMAP RANGE HARGA */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mx-2 sm:mx-0">
-            
             <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Konsistensi Jam Operasional Toko</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Total durasi jam buka toko aktif (Online Hours) secara akumulatif per bulan</p></div>
-              <div className="h-[250px] sm:h-[300px] w-full select-none">
+              <div className="h-[250px] sm:h-[280px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={profile.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
+                  <LineChart data={profile.historyChart} margin={{ top: 30, right: 15, left: 15, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                     <XAxis dataKey="month" stroke="#9CA3AF" fontSize={11} tickLine={false} dy={10} />
                     <YAxis hide />
@@ -616,14 +630,11 @@ export default function MerchantPresentation() {
 
             <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100">
               <div className="mb-6 border-b border-slate-100 pb-4 text-center"><h4 className="text-sm sm:text-lg font-black text-slate-900">Distribusi Range Harga (Heatmap)</h4><p className="text-[10px] sm:text-xs text-slate-400 font-medium mt-1">Porsi 100% kelompok harga tiket yang paling banyak dibeli pelanggan</p></div>
-              <div className="h-[250px] sm:h-[300px] w-full select-none">
+              <div className="h-[250px] sm:h-[280px] w-full select-none">
                 <ResponsiveContainer width="100%" height="100%">
-                  {/* Menggunakan stackOffset="expand" tidak disarankan karena tooltips akan melempar nilai desimal (0.45). 
-                      Oleh karena itu kita menggunakan data persentase (_pct) yang kita hitung manual, namun domain Y-Axis diatur ke 100 */}
-                  <BarChart data={profile.historyChart} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={profile.historyChart} margin={{ top: 25, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                     <XAxis dataKey="month" stroke="#6B7280" fontSize={11} tickLine={false} dy={10} />
-                    {/* Y-Axis dipaksa 0 - 100 karena ini persentase 100% */}
                     <YAxis tickFormatter={(v) => `${v}%`} stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
                     <Tooltip content={<PriceRangeTooltip />} cursor={{ fill: 'transparent' }} />
                     <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingBottom: '25px' }} iconType="circle" />
@@ -642,7 +653,6 @@ export default function MerchantPresentation() {
                     </Bar>
                     <Bar dataKey="co100_plus_pct" name="> 100rb" stackId="range" fill="#3B82F6" barSize={40} radius={[6, 6, 0, 0]}>
                       <LabelList dataKey="co100_plus_pct" content={(p) => renderPercentLabel(p, '#ffffff')} />
-                      {/* Label Total Order Melayang di Atas Tumpukan */}
                       <LabelList dataKey="co100_plus_pct" content={renderTotalRangeLabel} />
                     </Bar>
                   </BarChart>
